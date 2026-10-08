@@ -1,0 +1,21 @@
+{
+  "name": "bplay-crm",
+  "version": "1.0.0",
+  "description": "CRM propio con bot IA para WhatsApp API + chat web",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.4",
+    "web-push": "^3.6.7"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "private": true
+}
