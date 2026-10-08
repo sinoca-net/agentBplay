@@ -1,4 +1,17 @@
-# BPLAY CRM: bot propio + WhatsApp API + chat web
+# BPLAY CRM: landing + chat propio + bot que responde como vos
+
+**Circuito principal:** anuncio en Meta → landing (`/`) con el chat integrado → bot + vos desde el panel → link oficial de BPLAY → primera carga.
+WhatsApp es opcional: si algún día conectás un número, entra a la misma bandeja.
+
+## Novedades
+- **Landing en `/`:** título, bonos por provincia, señales de confianza, pasos, preguntas frecuentes y el chat integrado. Todo se edita desde **Bot → Landing**. El Pixel registra *PageView*, *Lead* (cuando la persona deja sus datos) y *LinkRegistro* (cuando el bot le manda el link).
+- **Cuenta oficial de carga por provincia:** se carga en **Bot → Provincias**. El bot pasa sólo la de la provincia del cliente y nunca otra.
+- **Entrenar para que responda como vos (Bot → Entrenar):**
+  1. Subí chats tuyos exportados de WhatsApp (ideal: los que terminaron en carga) y poné cómo figurás vos en el chat. La IA arma tu guía de estilo y saca tus mejores respuestas como ejemplos.
+  2. En la bandeja, pasá el mouse por una respuesta del bot y tocá **✏️ Corregir**: escribís cómo lo dirías vos y queda como ejemplo con prioridad.
+  3. Cada semana, usá el **Laboratorio** para comparar las charlas que convirtieron con las que no.
+- **Filtro por canal** en la bandeja (web / WhatsApp).
+- **Links con etiqueta:** `tudominio.com/?src=reactivacion` o con UTMs. Cada contacto queda con su origen y en **Métricas → Por origen** ves cuántos cargaron de cada fuente.
 
 Sistema propio, sin ManyChat:
 
