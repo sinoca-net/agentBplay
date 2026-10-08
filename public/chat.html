@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0e2a3b">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Chat</title>
+<style>
+  :root{--head:#0e2a3b;--head-2:#14394f;--bg:#ece5dd;--me:#d6f5dd;--them:#fff;--text:#111b21;--muted:#667781;--accent:#1fa463;--blue:#34b7f1;--line:#d1d7db}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:var(--bg)}
+  body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  header{background:var(--head);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));flex-shrink:0}
+  .av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#1fa463,#0b7a4a);display:grid;place-items:center;font-weight:700;font-size:18px;flex-shrink:0}
+  .who{display:flex;flex-direction:column;min-width:0}
+  .who b{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who span{font-size:12.5px;opacity:.8}
+  .verified{display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-left:4px}
+  #list{flex:1;overflow-y:auto;padding:12px 4% 8px;
+    background-color:var(--bg);
+    background-image:radial-gradient(rgba(0,0,0,.035) 1px,transparent 1px);background-size:18px 18px}
+  .day{align-self:center;text-align:center;margin:10px auto;font-size:12px;color:#54656f;background:#fff;border-radius:8px;padding:5px 12px;box-shadow:0 1px .5px rgba(0,0,0,.13);width:max-content}
+  .row{display:flex;margin:2px 0}
+  .row.me{justify-content:flex-end}
+  .b{max-width:82%;padding:6px 8px 8px 9px;border-radius:8px;box-shadow:0 1px .5px rgba(0,0,0,.13);font-size:15px;line-height:1.35;position:relative;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+  .them .b{background:var(--them);border-top-left-radius:0}
+  .me .b{background:var(--me);border-top-right-radius:0}
+  .row.cont .b{border-radius:8px}
+  .row.first{margin-top:8px}
+  .meta{float:right;margin:6px 0 -4px 10px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;user-select:none}
+  .tick{width:16px;height:11px}
+  .tick.read{color:var(--blue)}
+  .b a{color:#027eb5;word-break:break-all}
+  .typing .b{padding:12px 14px}
+  .dots span{display:inline-block;width:7px;height:7px;margin:0 1.5px;border-radius:50%;background:#9aa5ab;animation:bl 1.3s infinite}
+  .dots span:nth-child(2){animation-delay:.18s}.dots span:nth-child(3){animation-delay:.36s}
+  @keyframes bl{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+  footer{display:flex;align-items:flex-end;gap:8px;padding:6px 8px;padding-bottom:max(6px,env(safe-area-inset-bottom));background:#f0f2f5;flex-shrink:0}
+  #inp{flex:1;border:none;border-radius:22px;padding:11px 16px;font-size:16px;font-family:inherit;resize:none;max-height:120px;line-height:1.3;outline:none;background:#fff}
+  #send{width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer;flex-shrink:0}
+  #send:disabled{opacity:.5}
+  /* tarjeta de inicio */
+  .card{background:#fff;border-radius:10px;box-shadow:0 1px .5px rgba(0,0,0,.13);padding:16px;margin:10px auto;max-width:420px}
+  .card h3{margin:0 0 4px;font-size:16px}
+  .card p{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+  .card label{display:block;font-size:13px;color:#3b4a54;margin:10px 0 4px}
+  .card input[type=text],.card input[type=tel],.card select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-family:inherit;background:#fff}
+  .card .chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#3b4a54;margin-top:10px}
+  .card .chk input{margin-top:2px;width:17px;height:17px;flex-shrink:0}
+  .card button{margin-top:14px;width:100%;padding:13px;border:none;border-radius:24px;background:var(--accent);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+  .err{color:#c0392b;font-size:13px;margin-top:8px;min-height:1em}
+  .note{font-size:11.5px;color:var(--muted);text-align:center;margin:8px 0 0}
+  .banner{display:none;align-items:center;gap:10px;background:#fff8e1;border-bottom:1px solid #f0e2b6;padding:9px 14px;font-size:13.5px}
+  .banner button{margin-left:auto;border:none;background:var(--head);color:#fff;border-radius:16px;padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
+  .banner .x{background:none;color:#666;padding:4px;margin-left:0}
+  .trustbar{background:#0a2231;color:#cfe3ee;font-size:12px;padding:6px 14px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;border-top:1px solid rgba(255,255,255,.06);white-space:nowrap;overflow:hidden}
+  .trustbar .tx{overflow:hidden;text-overflow:ellipsis}
+  .trustbar b{color:#fff;font-weight:600}
+  .trustbar .more{margin-left:auto;opacity:.7}
+  .trustlist{display:none;background:#0a2231;color:#e3eef4;font-size:13px;padding:4px 16px 12px;flex-shrink:0}
+  .trustlist.on{display:block}
+  .trustlist div{display:flex;gap:8px;margin:6px 0;line-height:1.35}
+  #installBtn{display:none;margin-left:auto;background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:16px;padding:6px 11px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+  .embed-close{display:none;margin-left:auto;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;padding:0 4px}
+  body.embed .embed-close{display:block}
+  body.embed #installBtn,body.inline #installBtn{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="av" id="av">V</div>
+  <div class="who">
+    <b><span id="agentName">Asistencia</span><svg class="verified" viewBox="0 0 24 24"><path fill="#1fa463" d="M12 1l2.6 2.1 3.3-.3 1 3.2 2.9 1.6-.9 3.2 1.4 3-2.7 1.9-.4 3.3-3.3.5L12 23l-2.6-2.1-3.3.3-1-3.2L2.2 16.4l.9-3.2-1.4-3 2.7-1.9.4-3.3 3.3-.5z"/><path fill="#fff" d="M10.6 15.6l-3.2-3.2 1.4-1.4 1.8 1.8 4.6-4.6 1.4 1.4z"/></svg></b>
+    <span id="status">en línea</span>
+  </div>
+  <button id="installBtn">📲 Instalar app</button>
+  <button class="embed-close" id="closeEmbed" aria-label="Cerrar">×</button>
+</header>
+<div class="trustbar" id="trustbar">🔒 <span class="tx"><b id="trustTitle">Agente oficial BPLAY</b> · +18 · Juego responsable</span><span class="more">ver más ▾</span></div>
+<div class="trustlist" id="trustlist"></div>
+<div class="banner" id="pushBanner">🔔 Activá las notificaciones para no perderte la respuesta
+  <button id="pushYes">Activar</button><button class="x" id="pushNo" aria-label="Cerrar">✕</button>
+</div>
+<main id="list"></main>
+<footer id="composer" style="display:none">
+  <textarea id="inp" rows="1" placeholder="Escribí un mensaje" enterkeyhint="send"></textarea>
+  <button id="send" aria-label="Enviar"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg></button>
+</footer>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(() => {
+  const qs = new URLSearchParams(location.search);
+  const mode = qs.get('embed');
+  if (mode === 'inline') document.body.classList.add('inline'); else if (mode) document.body.classList.add('embed');
+  // avisa a la landing (Pixel) o dispara el Pixel si el chat está abierto solo
+  function track(ev) {
+    if (window.parent !== window) { try { parent.postMessage(ev === 'Lead' ? 'bpc:lead' : 'bpc:link', location.origin); } catch {} }
+    else if (window.fbq) { ev === 'Lead' ? fbq('track', 'Lead') : fbq('trackCustom', ev); }
+  }
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+    set(k,v){ try { localStorage.setItem(k,v); } catch {} },
+    del(k){ try { localStorage.removeItem(k); } catch {} },
+  };
+  let cfg = null, socket = null, token = store.get('bpc_token'), lastDay = null, lastFrom = null;
+  const list = $('list');
+
+  const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  const toDate = s => new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');
+  const hhmm = d => d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+  const dayLabel = d => {
+    const t = new Date(); const y = new Date(); y.setDate(t.getDate()-1);
+    if (d.toDateString() === t.toDateString()) return 'HOY';
+    if (d.toDateString() === y.toDateString()) return 'AYER';
+    return d.toLocaleDateString('es-AR', {day:'numeric', month:'long'}).toUpperCase();
+  };
+  const tick = st => {
+    if (st === 'pending') return '<svg class="tick" viewBox="0 0 16 15"><circle cx="8" cy="7.5" r="5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.5v3.2l2 1.3" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>';
+    const two = st === 'delivered' || st === 'read';
+    return `<svg class="tick ${st==='read'?'read':''}" viewBox="0 0 18 11"><path fill="currentColor" d="M11.07.65l-6.6 7.6-2.9-2.6L.5 6.8l4.05 3.6 7.6-8.75z"/>${two?'<path fill="currentColor" d="M16.5.65l-6.6 7.6-1.1-1-1.05 1.2 2.2 1.95 7.6-8.75z"/>':''}</svg>`;
+  };
+  const scroll = () => { list.scrollTop = list.scrollHeight; };
+
+  function addMsg(m) {
+    if ($('m' + m.id)) return;
+    const d = m.created_at ? toDate(m.created_at) : new Date();
+    const dl = dayLabel(d);
+    if (dl !== lastDay) { const s = document.createElement('div'); s.className='day'; s.textContent = dl; list.appendChild(s); lastDay = dl; lastFrom = null; }
+    const row = document.createElement('div');
+    row.className = `row ${m.from}${lastFrom === m.from ? ' cont' : ' first'}`;
+    row.id = 'm' + m.id;
+    row.innerHTML = `<div class="b">${linkify(m.body)}<span class="meta">${hhmm(d)}${m.from==='me'?`<span class="tk">${tick(m.status)}</span>`:''}</span></div>`;
+    const typingEl = $('typingRow');
+    list.insertBefore(row, typingEl || null);
+    lastFrom = m.from;
+    scroll();
+  }
+  function setTyping(on) {
+    let el = $('typingRow');
+    $('status').textContent = on ? 'escribiendo…' : (cfg?.agent_status || 'en línea');
+    if (on && !el) {
+      el = document.createElement('div'); el.id='typingRow'; el.className='row them typing first';
+      el.innerHTML = '<div class="b"><span class="dots"><span></span><span></span><span></span></span></div>';
+      list.appendChild(el); scroll();
+    } else if (!on && el) el.remove();
+  }
+  function markAllRead() { list.querySelectorAll('.row.me .tk').forEach(t => t.innerHTML = tick('read')); }
+
+  function showGate() {
+    const opts = Object.entries(cfg.provinces).map(([k,p]) => `<option value="${k}" ${qs.get('prov')===k?'selected':''}>${esc(p.label)}</option>`).join('');
+    addMsg({ id: 'w', from: 'them', body: cfg.welcome_message, created_at: new Date().toISOString() });
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <h3>Empecemos 👇</h3>
+      <p>Dejanos tus datos así te atendemos y no perdés la conversación.</p>
+      <form id="gate" autocomplete="on">
+        <label for="fName">Nombre</label><input id="fName" type="text" name="name" autocomplete="given-name" required>
+        <label for="fPhone">Celular (con código de área)</label><input id="fPhone" type="tel" name="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 223 1234567" required>
+        <label for="fProv">Provincia</label><select id="fProv"><option value="">Elegí tu provincia</option>${opts}</select>
+        <div class="chk"><input id="fAdult" type="checkbox" required><label for="fAdult" style="margin:0">Soy mayor de 18 años</label></div>
+        <div class="chk"><input id="fOpt" type="checkbox" checked><label for="fOpt" style="margin:0">Quiero recibir novedades y bonos (podés darte de baja cuando quieras)</label></div>
+        <button type="submit">Iniciar chat</button>
+        <div class="err" id="gErr"></div>
+      </form>
+      <p class="note">Juego responsable · Sólo mayores de 18 años</p>`;
+    list.appendChild(card);
+    $('gate').addEventListener('submit', async e => {
+      e.preventDefault();
+      $('gErr').textContent = '';
+      const btn = e.target.querySelector('button'); btn.disabled = true;
+      try {
+        const r = await fetch('/api/chat/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+          name: $('fName').value, phone: $('fPhone').value, province: $('fProv').value, adult: $('fAdult').checked, optin: $('fOpt').checked,
+          source: [qs.get('utm_source'), qs.get('utm_campaign'), qs.get('src')].filter(Boolean).join('|') || document.referrer.slice(0,100) || 'web' }) });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error');
+        token = data.token; store.set('bpc_token', token);
+        track('Lead');
+        list.innerHTML = ''; lastDay = null; lastFrom = null;
+        startChat();
+      } catch (err) { $('gErr').textContent = err.message; btn.disabled = false; }
+    });
+  }
+
+  async function startChat() {
+    const r = await fetch('/api/chat/history?token=' + encodeURIComponent(token));
+    if (!r.ok) { store.del('bpc_token'); token = null; list.innerHTML=''; return showGate(); }
+    const h = await r.json();
+    h.messages.forEach(addMsg);
+    $('composer').style.display = 'flex';
+    socket = io({ auth: { token } });
+    socket.on('message', m => { addMsg(m); setTyping(false); if (document.visibilityState === 'visible') socket.emit('seen'); });
+    socket.on('typing', on => setTyping(on));
+    socket.on('read', markAllRead);
+    socket.on('track', ev => track(ev));
+    socket.on('connect', () => socket.emit('seen'));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') socket.emit('seen'); });
+    setTimeout(maybeAskPush, 6000);
+  }
+
+  let tmpId = 0, typingTimer = null;
+  function send() {
+    const text = $('inp').value.trim();
+    if (!text || !socket) return;
+    $('inp').value = ''; autosize();
+    const temp = { id: 't' + (++tmpId), from: 'me', body: text, status: 'pending', created_at: new Date().toISOString() };
+    addMsg(temp);
+    socket.emit('message', text, m => {
+      const el = $('m' + temp.id);
+      if (el) { el.id = 'm' + m.id; el.querySelector('.tk').innerHTML = tick('delivered'); }
+    });
+    socket.emit('typing', false);
+  }
+  function autosize() { const i = $('inp'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 120) + 'px'; }
+  $('send').addEventListener('click', send);
+  $('inp').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); send(); } });
+  $('inp').addEventListener('input', () => {
+    autosize();
+    if (!socket) return;
+    socket.emit('typing', true);
+    clearTimeout(typingTimer); typingTimer = setTimeout(() => socket.emit('typing', false), 2500);
+  });
+  $('closeEmbed').addEventListener('click', () => parent.postMessage('bpc:close', '*'));
+
+  // ---------- notificaciones push ----------
+  const b64 = s => { const p = '='.repeat((4 - s.length % 4) % 4); const r = atob((s + p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
+  function maybeAskPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'default' || store.get('bpc_push_no')) { if (Notification.permission === 'granted') subscribe(); return; }
+    $('pushBanner').style.display = 'flex';
+  }
+  async function subscribe() {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(cfg.vapidPublicKey) });
+      await fetch('/api/chat/push', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, subscription: sub }) });
+    } catch (e) { console.warn('push', e); }
+  }
+  $('pushYes').addEventListener('click', async () => { $('pushBanner').style.display='none'; if (await Notification.requestPermission() === 'granted') subscribe(); });
+  $('pushNo').addEventListener('click', () => { $('pushBanner').style.display='none'; store.set('bpc_push_no','1'); });
+
+  // ---------- instalar como app ----------
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('installBtn').style.display = 'block'; });
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (isIOS && !standalone && !mode) $('installBtn').style.display = 'block';
+  $('installBtn').addEventListener('click', async () => {
+    if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').style.display = 'none'; }
+    else if (isIOS) alert('Para instalar: tocá el botón Compartir ⬆️ y después "Agregar a inicio". Así te llegan las respuestas como notificación.');
+  });
+
+  // ---------- inicio ----------
+  fetch('/api/chat/config').then(r => r.json()).then(c => {
+    cfg = c;
+    document.title = c.agent_name + ' · ' + c.brand_name;
+    $('agentName').textContent = c.agent_name + ' · ' + c.brand_name;
+    $('av').textContent = (c.agent_name || 'A')[0].toUpperCase();
+    $('status').textContent = c.agent_status;
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    const L = c.landing || {};
+    $('trustTitle').textContent = c.brand_name;
+    $('trustlist').innerHTML = (L.trust_points || []).map(t => `<div>✅ <span>${esc(t)}</span></div>`).join('');
+    $('trustbar').onclick = () => $('trustlist').classList.toggle('on');
+    if (!mode && L.pixel_id && !window.fbq) {
+      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', L.pixel_id); fbq('track', 'PageView');
+    }
+    token ? startChat() : showGate();
+  });
+})();
+</script>
+</body>
+</html>

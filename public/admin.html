@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BPLAY CRM</title>
+<link rel="icon" href="/icon.svg">
+<style>
+:root{
+  --bg:#f4f5f7;--panel:#fff;--ink:#14212b;--ink-2:#4a5a66;--muted:#80909b;--line:#e3e7ea;--line-2:#eef1f3;
+  --brand:#0e2a3b;--accent:#1fa463;--accent-soft:#e3f5ea;--warn:#b26a00;--warn-soft:#fff3dc;--crit:#c0392b;--crit-soft:#fdecea;
+  --me:#d6f5dd;--them:#fff;--bot:#eaf1ff;--sys:#fff8e1;--chat-bg:#efeae2;--blue:#34b7f1;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:64px 1fr;height:100dvh}
+nav{background:var(--brand);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:6px}
+nav .logo{width:38px;height:38px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:12px}
+nav button{width:46px;height:46px;border:none;border-radius:12px;background:transparent;color:#9fb6c4;display:grid;place-items:center;position:relative}
+nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+nav button.on{background:rgba(255,255,255,.14);color:#fff}
+nav button .badge{position:absolute;top:4px;right:3px;background:var(--crit);color:#fff;border-radius:9px;font-size:10px;font-weight:700;min-width:17px;height:17px;display:grid;place-items:center;padding:0 4px}
+nav button[data-tip]:hover:after{content:attr(data-tip);position:absolute;left:54px;background:#111;color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:10}
+nav .spacer{flex:1}
+.view{display:none;height:100dvh;overflow:hidden}
+.view.on{display:flex}
+/* ---------- bandeja ---------- */
+#v-inbox{display:none}
+#v-inbox.on{display:grid;grid-template-columns:340px 1fr 300px}
+#v-inbox>*{min-width:0}
+.col{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line)}
+.col-h{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.search{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:16px;padding:4px 10px;font-size:12.5px;color:var(--ink-2)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.convs{overflow-y:auto;flex:1}
+.conv{display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line-2);cursor:pointer;align-items:center}
+.conv:hover{background:#f7f9fa}
+.conv.on{background:#eef4f7}
+.avatar{width:42px;height:42px;border-radius:50%;background:#cfd8de;color:#33454f;display:grid;place-items:center;font-weight:700;flex-shrink:0;position:relative}
+.avatar .ch{position:absolute;right:-2px;bottom:-2px;width:17px;height:17px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center}
+.ch.whatsapp{background:#25d366}.ch.web{background:#4a7bd0}
+.conv .mid{flex:1;min-width:0}
+.conv .top{display:flex;justify-content:space-between;gap:6px}
+.conv .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv .time{font-size:11.5px;color:var(--muted);flex-shrink:0}
+.conv .prev{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.conv .tags{display:flex;gap:4px;margin-top:4px;align-items:center}
+.unread{background:var(--accent);color:#fff;border-radius:10px;font-size:11px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 6px}
+.pill{font-size:11px;border-radius:10px;padding:1px 7px;background:var(--line-2);color:var(--ink-2);white-space:nowrap}
+.pill.human{background:var(--crit-soft);color:var(--crit)}
+.pill.off{background:var(--warn-soft);color:var(--warn)}
+.pill.st-primera_carga,.pill.st-activo{background:var(--accent-soft);color:#11733f}
+.pill.st-perdido{background:#eee;color:#888}
+.chat{display:flex;flex-direction:column;min-height:0;background:var(--chat-bg)}
+.chat-h{background:var(--panel);padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;min-height:62px}
+.chat-h .info{flex:1;min-width:0}
+.chat-h .info b{display:block;font-size:15px}
+.chat-h .info span{font-size:12.5px;color:var(--muted)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2);background:var(--bg);border-radius:20px;padding:5px 6px 5px 12px;border:1px solid var(--line)}
+.sw{width:38px;height:22px;border-radius:11px;background:#c7cfd4;position:relative;border:none;transition:.15s}
+.sw:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+.sw.on{background:var(--accent)}.sw.on:after{left:19px}
+.msgs{flex:1;overflow-y:auto;padding:16px 6%;background-image:radial-gradient(rgba(0,0,0,.035) 1px,transparent 1px);background-size:18px 18px}
+.mrow{display:flex;margin:3px 0}
+.mrow.out{justify-content:flex-end}
+.mrow.sys{justify-content:center}
+.bub{max-width:70%;padding:6px 9px 7px;border-radius:8px;box-shadow:0 1px .5px rgba(0,0,0,.12);white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;line-height:1.38;font-size:14px}
+.in .bub{background:var(--them)}
+.out .bub{background:var(--me)}
+.out.bot .bub{background:var(--bot)}
+.sys .bub{background:var(--sys);font-size:12.5px;color:#6b5a1e;max-width:85%;text-align:center}
+.bub .who{display:block;font-size:11.5px;font-weight:600;margin-bottom:2px}
+.bot .who{color:#3d63b8}.agent .who{color:#11733f}
+.bub .meta{float:right;font-size:10.5px;color:var(--muted);margin:6px 0 -3px 10px;display:flex;gap:3px;align-items:center}
+.bub a{color:#027eb5}
+.mrow.bot{align-items:center;gap:6px}
+.fix{order:-1;border:none;background:rgba(255,255,255,.8);color:var(--ink-2);font-size:11.5px;border-radius:12px;padding:3px 8px;opacity:0;transition:.15s}
+.mrow.bot:hover .fix{opacity:1}
+@media (hover:none){.fix{opacity:.85}}
+.modal{position:fixed;inset:0;background:rgba(10,20,28,.5);display:none;place-items:center;z-index:60;padding:16px}
+.modal.on{display:grid}
+.modal .box{background:#fff;border-radius:14px;padding:20px;width:min(520px,100%)}
+.modal h3{margin:0 0 6px;font-size:16px}
+.modal .old{background:var(--bot);border-radius:8px;padding:8px 10px;font-size:13px;margin:10px 0;white-space:pre-wrap}
+.modal textarea{width:100%;min-height:110px;padding:10px;border:1px solid var(--line);border-radius:8px;resize:vertical}
+.ex{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;display:grid;grid-template-columns:1fr auto;gap:6px 12px}
+.ex.off{opacity:.5}
+.ex .c{color:var(--ink-2)}.ex .r{color:var(--ink)}.ex .b{color:var(--crit);text-decoration:line-through}
+.ex .k{font-size:11px;color:var(--muted)}
+.tick{width:16px;height:11px}.tick.read{color:var(--blue)}.tick.failed{color:var(--crit)}
+.day{text-align:center;margin:12px 0}
+.day span{background:#fff;font-size:11.5px;color:#54656f;border-radius:7px;padding:4px 10px;box-shadow:0 1px .5px rgba(0,0,0,.1)}
+.typing{font-size:12.5px;color:var(--muted);padding:2px 6%;height:20px;background:var(--chat-bg)}
+.composer{display:flex;gap:8px;padding:10px 12px;background:#f0f2f5;align-items:flex-end}
+.composer textarea{flex:1;border:none;border-radius:10px;padding:10px 14px;resize:none;max-height:140px;outline:none;line-height:1.35}
+.composer .send{height:42px;border:none;border-radius:21px;background:var(--accent);color:#fff;padding:0 16px;font-weight:600;white-space:nowrap}
+.hint{font-size:11.5px;color:var(--muted);padding:0 14px 8px;background:#f0f2f5}
+.window-warn{background:var(--warn-soft);color:var(--warn);font-size:12.5px;padding:7px 14px;display:none}
+.empty{flex:1;display:grid;place-items:center;color:var(--muted);text-align:center;padding:30px}
+.side{background:var(--panel);overflow-y:auto;padding:16px;border-left:1px solid var(--line)}
+.side h4{margin:18px 0 8px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.side h4:first-child{margin-top:0}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.field textarea{resize:vertical;min-height:70px}
+.kv{font-size:12.5px;color:var(--ink-2);display:grid;grid-template-columns:90px 1fr;gap:4px 8px}
+.kv b{font-weight:500;color:var(--ink);word-break:break-all}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-weight:500;color:var(--ink);text-decoration:none;display:inline-block}
+.btn:hover{background:var(--bg)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(.95)}
+.btn.danger{color:var(--crit)}
+.btn.sm{padding:5px 10px;font-size:12.5px}
+.row-btns{display:flex;gap:6px;flex-wrap:wrap}
+/* ---------- páginas ---------- */
+.page{flex:1;overflow-y:auto;padding:24px 28px}
+.page h2{margin:0 0 4px;font-size:22px}
+.page .sub{color:var(--muted);margin:0 0 20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:15px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-2);font-size:13px;vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;background:#fafbfc;position:sticky;top:0}
+tbody tr:hover{background:#f9fbfc}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.script{width:100%;min-height:420px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5;padding:12px;border:1px solid var(--line);border-radius:8px;resize:vertical}
+.prov-table input{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat .l{font-size:12px;color:var(--muted)}
+.stat .v{font-size:28px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.stat .s{font-size:12px;color:var(--ink-2)}
+.funnel .fr{display:grid;grid-template-columns:120px 1fr 190px;align-items:center;gap:10px;margin:7px 0}
+.funnel .fl{font-size:13px;color:var(--ink-2)}
+.funnel .track{height:26px;background:var(--line-2);border-radius:4px;position:relative}
+.funnel .bar{height:100%;background:#2f7d5b;border-radius:0 4px 4px 0;min-width:2px}
+.funnel .fv{font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+.funnel .fv small{color:var(--muted)}
+.analysis{white-space:pre-wrap;line-height:1.55;font-size:13.5px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px;max-height:520px;overflow:auto}
+.status-line{display:flex;gap:10px;align-items:center;margin:6px 0}
+.dot{width:10px;height:10px;border-radius:50%}
+.dot.ok{background:var(--accent)}.dot.no{background:var(--crit)}
+code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;word-break:break-all}
+.code{display:block;padding:10px;margin:6px 0}
+.fu{display:grid;grid-template-columns:150px 90px 1fr 34px;gap:8px;margin-bottom:8px;align-items:start}
+.fu select,.fu input,.fu textarea{padding:7px 8px;border:1px solid var(--line);border-radius:6px;width:100%}
+.fu textarea{min-height:38px;resize:vertical}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#14212b;color:#fff;padding:10px 16px;border-radius:8px;font-size:13.5px;display:none;z-index:99}
+/* login */
+#login{position:fixed;inset:0;background:var(--brand);display:grid;place-items:center;z-index:50}
+#login form{background:#fff;border-radius:14px;padding:28px;width:min(360px,90vw)}
+#login h1{margin:0 0 4px;font-size:20px}
+#login p{margin:0 0 16px;color:var(--muted)}
+#login input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+#login button{width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600}
+.back{display:none}.side-close{display:none;margin-bottom:12px}
+@media (max-width:1100px){.side-close{display:inline-block}}
+@media (max-width:1100px){#v-inbox.on{grid-template-columns:300px 1fr}.side{display:none}#v-inbox.on.showside .side{display:block;position:fixed;right:0;top:0;bottom:0;width:300px;z-index:20;box-shadow:-8px 0 24px rgba(0,0,0,.15)}}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:1fr 56px}
+  nav{flex-direction:row;justify-content:space-around;order:2;padding:0 6px}
+  nav .logo,nav .spacer{display:none}
+  .view{height:calc(100dvh - 56px)}
+  #v-inbox.on{grid-template-columns:1fr}
+  #v-inbox.on .chat{display:none}
+  #v-inbox.on.open .chat{display:flex}#v-inbox.on.open .col{display:none}
+  .chat-h{gap:8px;padding:8px 10px}.chat-h .avatar{width:36px;height:36px}.toggle{font-size:0;padding:4px;gap:0}
+  .back{display:block;border:none;background:none;font-size:22px;padding:0 6px 0 0}
+  .stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}
+  .page{padding:16px}
+  .fu{grid-template-columns:1fr 1fr}.fu textarea{grid-column:1/-1}
+  .funnel .fr{grid-template-columns:90px 1fr 70px}.funnel .fv small{display:none}
+}
+</style>
+</head>
+<body>
+<div id="login">
+  <form id="loginForm">
+    <h1>BPLAY CRM</h1>
+    <p>Ingresá la contraseña del panel</p>
+    <input type="password" id="pw" placeholder="Contraseña" autocomplete="current-password" required>
+    <button>Entrar</button>
+    <div style="color:var(--crit);font-size:13px;margin-top:8px" id="loginErr"></div>
+  </form>
+</div>
+
+<div class="app">
+  <nav>
+    <div class="logo">B</div>
+    <button data-view="inbox" class="on" data-tip="Bandeja"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="badge" id="navBadge" style="display:none"></span></button>
+    <button data-view="contacts" data-tip="Contactos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+    <button data-view="bot" data-tip="Bot"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 4v4M8 14h.01M16 14h.01"/></svg></button>
+    <button data-view="metrics" data-tip="Métricas"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></button>
+    <button data-view="setup" data-tip="Conexión"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button>
+    <div class="spacer"></div>
+    <button id="logout" data-tip="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+  </nav>
+
+  <!-- BANDEJA -->
+  <section class="view on" id="v-inbox">
+    <div class="col">
+      <div class="col-h">
+        <input class="search" id="q" placeholder="Buscar nombre, teléfono, nota…">
+        <div class="chips" id="filters">
+          <button class="chip on" data-f="">Todos</button>
+          <button class="chip" data-f="unread">Sin leer</button>
+          <button class="chip" data-f="human">Necesita humano</button>
+          <button class="chip" data-f="bot_off">Bot pausado</button>
+        </div>
+        <div style="display:flex;gap:6px"><select class="search" id="stageFilter"><option value="">Etapa: todas</option></select>
+        <select class="search" id="channelFilter" style="max-width:140px"><option value="">Canal: todos</option><option value="web">Chat web</option><option value="whatsapp">WhatsApp</option></select></div>
+      </div>
+      <div class="convs" id="convs"></div>
+    </div>
+    <div class="chat" id="chat">
+      <div class="empty" id="chatEmpty"><div><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#b5c0c7" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Elegí una conversación</p></div></div>
+    </div>
+    <aside class="side" id="side"></aside>
+  </section>
+
+  <!-- CONTACTOS -->
+  <section class="view" id="v-contacts">
+    <div class="page">
+      <h2>Contactos</h2>
+      <p class="sub">Todos tus jugadores y leads, con nombre y teléfono. Nunca más se pierden.</p>
+      <div class="toolbar">
+        <input class="search" id="cq" placeholder="Buscar…" style="max-width:260px">
+        <select class="search" id="cstage" style="max-width:200px"><option value="">Todas las etapas</option></select>
+        <span style="flex:1"></span>
+        <button class="btn" id="addContact">+ Agregar</button>
+        <label class="btn" style="margin:0">Importar CSV<input type="file" id="importFile" accept=".csv,text/csv" hidden></label>
+        <a class="btn" href="/api/admin/export.csv">Exportar CSV</a>
+      </div>
+      <div class="card" style="padding:0;overflow:auto;max-height:calc(100dvh - 190px)">
+        <table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Provincia</th><th>Etapa</th><th>Canal</th><th>Origen</th><th>Último mensaje</th></tr></thead><tbody id="ctable"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOT -->
+  <section class="view" id="v-bot">
+    <div class="page">
+      <h2>Configuración del bot</h2>
+      <p class="sub">Todo lo que el bot sabe y cómo vende. Cada cambio en el guion crea una versión nueva, así comparás cuál convierte más en Métricas.</p>
+      <div class="grid2">
+        <div class="card">
+          <h3>Identidad</h3>
+          <div class="field"><label>Nombre del agente</label><input id="s_agent_name"></div>
+          <div class="field"><label>Cómo se presenta (ej: agente oficial afiliado de BPLAY)</label><input id="s_agent_title"></div>
+          <div class="field"><label>Marca (se ve en la landing y el chat)</label><input id="s_brand_name"></div>
+          <div class="field"><label>Mensaje de bienvenida (chat web)</label><textarea id="s_welcome_message"></textarea></div>
+        </div>
+        <div class="card">
+          <h3>Comportamiento</h3>
+          <div class="field"><label>Modelo de IA</label><input id="s_model"><div style="font-size:12px;color:var(--muted);margin-top:4px">claude-sonnet-5-5 (mejor conversión) · claude-haiku-5-5 (más barato y rápido)</div></div>
+          <div class="field"><label>Espera antes de responder (ms) — junta los mensajes seguidos del cliente</label><input id="s_bot_reply_delay_ms" type="number" min="0" step="500"></div>
+          <div class="field"><label>Cómo hacer la primera carga</label><textarea id="s_deposit_instructions"></textarea></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Provincias, links y bonos</h3>
+        <table class="prov-table"><thead><tr><th style="width:70px">Código</th><th style="width:190px">Nombre</th><th>Link de registro (afiliado)</th><th>Bono vigente (lo que el bot puede prometer)</th><th>Cuenta oficial BPLAY para cargas (CBU/alias + titular)</th></tr></thead><tbody id="provs"></tbody></table>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <h3 style="margin:0">Guion comercial</h3><span class="pill" id="verPill"></span><span style="flex:1"></span>
+          <select class="search" id="versions" style="max-width:280px"><option value="">Historial de versiones…</option></select>
+        </div>
+        <textarea class="script" id="s_script" spellcheck="false"></textarea>
+        <div class="field" style="margin-top:10px"><label>Nota de esta versión (qué cambiaste)</label><input id="versionNote" placeholder="Ej: agregué manejo de objeción 'no me llega el SMS'"></div>
+        <p style="font-size:12.5px;color:var(--muted);margin:4px 0 0">Las reglas de seguridad (+18, juego responsable, no pedir datos sensibles, no inventar bonos) están fijas y se aplican siempre, aunque no estén en el guion.</p>
+      </div>
+      <div class="card">
+        <h3>Seguimientos automáticos</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 12px">Si el cliente deja de responder, el bot le escribe después de X horas según la etapa. <code>{nombre}</code> se reemplaza por su nombre. En WhatsApp, pasadas 24 h sólo se puede usar una plantilla aprobada.</p>
+        <div id="fus"></div>
+        <div class="row-btns" style="margin-top:6px"><button class="btn sm" id="addFu">+ Agregar seguimiento</button></div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="field"><label>Máximo de seguimientos por etapa</label><input id="s_max_followups" type="number" min="0" max="5"></div>
+          <div class="field"><label>Plantilla de WhatsApp para +24 h (nombre exacto, opcional)</label><input id="s_wa_followup_template" placeholder="ej: recordatorio_registro"></div>
+        </div>
+      </div>
+      <div class="card" id="trainCard">
+        <h3>🎓 Entrenar: que responda como vos</h3>
+        <p style="font-size:13px;color:var(--ink-2);margin:-4px 0 14px">Subí chats tuyos exportados de WhatsApp (ideal: los que terminaron en carga). La IA saca tu forma de escribir y tus mejores respuestas, y el bot las usa. En WhatsApp: abrí el chat → ⋮ → Más → <b>Exportar chat → Sin archivos</b>. Podés subir varios a la vez (.txt o .zip).</p>
+        <div class="grid2">
+          <div class="field"><label>¿Cómo figurás vos en esos chats? (nombre exacto)</label><input id="ownerName" placeholder="Ej: Manu"></div>
+          <div class="field"><label>Chats exportados</label><input type="file" id="chatFiles" accept=".txt,.zip,text/plain,application/zip" multiple></div>
+        </div>
+        <button class="btn primary" id="learnBtn">Aprender de estos chats</button> <span id="learnOut" style="font-size:13px;color:var(--muted);margin-left:8px"></span>
+        <div class="field" style="margin-top:16px"><label>Tu estilo (lo completa la IA; podés editarlo)</label><textarea id="s_style_guide" style="min-height:160px" placeholder="Todavía vacío. Subí chats o escribí cómo hablás con los clientes."></textarea></div>
+        <div style="display:flex;align-items:center;gap:8px;margin:18px 0 8px"><h3 style="margin:0">Ejemplos que el bot imita</h3><span class="pill" id="exCount"></span><span style="flex:1"></span><button class="btn sm" id="addEx">+ Agregar ejemplo</button></div>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">Se suman solos cuando subís chats o cuando tocás <b>✏️ Corregir</b> en una respuesta del bot en la bandeja. Las correcciones tienen prioridad.</p>
+        <div id="exList"></div>
+      </div>
+
+      <div class="card">
+        <h3>🌐 Landing</h3>
+        <p style="font-size:13px;color:var(--ink-2);margin:-4px 0 14px">Es la página principal de tu dominio y el destino de tus anuncios. El chat va integrado.</p>
+        <div class="field"><label>Título</label><input id="l_headline"></div>
+        <div class="field"><label>Subtítulo</label><input id="l_subheadline"></div>
+        <div class="grid2">
+          <div class="field"><label>Texto del botón (celular)</label><input id="l_cta"></div>
+          <div class="field"><label>Meta Pixel ID</label><input id="l_pixel_id"></div>
+        </div>
+        <div class="field"><label>URL del logo (opcional, el que te da BPLAY para afiliados)</label><input id="l_logo_url" placeholder="https://..."></div>
+        <div class="grid2">
+          <div class="field"><label>Señales de confianza (una por línea)</label><textarea id="l_trust_points" style="min-height:110px"></textarea></div>
+          <div class="field"><label>Pasos "Cómo funciona" (uno por línea)</label><textarea id="l_steps" style="min-height:110px"></textarea></div>
+        </div>
+        <div class="field"><label>Preguntas frecuentes (formato: pregunta | respuesta, una por línea)</label><textarea id="l_faq" style="min-height:110px"></textarea></div>
+        <div class="field"><label>Texto legal del pie</label><textarea id="l_footer"></textarea></div>
+        <a class="btn sm" href="/" target="_blank">Ver landing ↗</a>
+      </div>
+
+      <div class="row-btns" style="margin-bottom:24px"><button class="btn primary" id="saveBot">Guardar cambios</button><a class="btn" href="/chat" target="_blank">Probar como cliente ↗</a></div>
+
+      <div class="card">
+        <h3>🧪 Laboratorio: mejorar la conversión</h3>
+        <p style="font-size:13px;color:var(--ink-2);margin:-4px 0 12px">La IA lee las conversaciones que terminaron en primera carga y las que se cayeron, encuentra dónde se pierde la gente y te propone un guion mejorado. Revisalo antes de aplicarlo.</p>
+        <button class="btn primary" id="analyze">Analizar conversaciones</button>
+        <div id="analysisOut" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MÉTRICAS -->
+  <section class="view" id="v-metrics">
+    <div class="page">
+      <div style="display:flex;align-items:center;gap:10px"><h2 style="flex:1">Métricas</h2>
+        <select class="search" id="mdays" style="max-width:160px"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="3650">Todo</option></select></div>
+      <p class="sub">Contactos creados en el período y hasta qué etapa llegaron.</p>
+      <div class="stats" id="mstats"></div>
+      <div class="card"><h3>Embudo</h3><div class="funnel" id="mfunnel"></div></div>
+      <div class="grid2">
+        <div class="card"><h3>Por versión del guion</h3><table><thead><tr><th>Versión</th><th class="num">Contactos</th><th class="num">Registro</th><th class="num">1ª carga</th></tr></thead><tbody id="mver"></tbody></table></div>
+        <div class="card"><h3>Por canal</h3><table><thead><tr><th>Canal</th><th class="num">Contactos</th><th class="num">Registro</th><th class="num">1ª carga</th></tr></thead><tbody id="mch"></tbody></table></div>
+      </div>
+      <div class="card"><h3>Por origen (anuncio / campaña)</h3><table><thead><tr><th>Origen</th><th class="num">Contactos</th><th class="num">Registro</th><th class="num">1ª carga</th></tr></thead><tbody id="msrc"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- CONEXIÓN -->
+  <section class="view" id="v-setup">
+    <div class="page">
+      <h2>Conexión</h2>
+      <p class="sub">Estado de los servicios y datos para conectar WhatsApp y la landing.</p>
+      <div class="card" id="setupStatus"></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal" id="fixModal"><div class="box">
+  <h3>¿Cómo lo dirías vos?</h3>
+  <div style="font-size:13px;color:var(--muted)">El bot respondió:</div>
+  <div class="old" id="fixOld"></div>
+  <textarea id="fixNew" placeholder="Escribí tu respuesta ideal, con tus palabras"></textarea>
+  <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:8px"><input type="checkbox" id="fixSend"> Además, enviársela ahora al cliente</label>
+  <div class="row-btns" style="margin-top:12px;justify-content:flex-end"><button class="btn" id="fixCancel">Cancelar</button><button class="btn primary" id="fixSave">Guardar y enseñar</button></div>
+</div></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const STAGES = {nuevo:'Nuevo',link_enviado:'Link enviado',registrado:'Registrado',validado:'Validado',primera_carga:'Primera carga',activo:'Activo',perdido:'Perdido'};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+const toDate = s => new Date(String(s).replace(' ', 'T') + 'Z');
+const hhmm = s => toDate(s).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+function ago(s){ if(!s) return ''; const d=toDate(s), now=new Date(); if(d.toDateString()===now.toDateString()) return hhmm(s); const y=new Date(); y.setDate(now.getDate()-1); if(d.toDateString()===y.toDateString()) return 'Ayer'; return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}); }
+const initials = n => (n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase() || '?';
+const pct = (a,b) => b ? Math.round(a*100/b)+'%' : '—';
+function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>el.style.display='none',2600); }
+async function api(path, opts={}) {
+  const r = await fetch('/api/admin'+path, { headers: opts.body && typeof opts.body==='string' && !opts.raw ? {'Content-Type':'application/json'} : {}, ...opts });
+  if (r.status === 401) { showLogin(); throw new Error('no autorizado'); }
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(d.error || 'Error');
+  return d;
+}
+const tickSvg = st => {
+  if (st==='failed') return '<svg class="tick failed" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4v5M8 11v1" stroke="#fff" stroke-width="2"/></svg>';
+  const two = st==='delivered'||st==='read';
+  return `<svg class="tick ${st==='read'?'read':''}" viewBox="0 0 18 11"><path fill="currentColor" d="M11.07.65l-6.6 7.6-2.9-2.6L.5 6.8l4.05 3.6 7.6-8.75z"/>${two?'<path fill="currentColor" d="M16.5.65l-6.6 7.6-1.1-1-1.05 1.2 2.2 1.95 7.6-8.75z"/>':''}</svg>`;
+};
+const chIcon = ch => ch==='whatsapp'
+  ? '<span class="ch whatsapp" title="WhatsApp"><svg width="9" height="9" viewBox="0 0 24 24"><path fill="#fff" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg></span>'
+  : '<span class="ch web" title="Chat web"><svg width="9" height="9" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="3"/></svg></span>';
+
+for (const [k,v] of Object.entries(STAGES)) { $('stageFilter').insertAdjacentHTML('beforeend',`<option value="${k}">${v}</option>`); $('cstage').insertAdjacentHTML('beforeend',`<option value="${k}">${v}</option>`); }
+
+// ---------- login ----------
+function showLogin(){ $('login').style.display='grid'; }
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const r = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
+  if (!r.ok) { $('loginErr').textContent='Contraseña incorrecta'; return; }
+  $('login').style.display='none'; boot();
+});
+$('logout').onclick = async () => { await fetch('/api/admin/logout',{method:'POST'}); location.reload(); };
+
+// ---------- navegación ----------
+document.querySelectorAll('nav button[data-view]').forEach(b => b.onclick = () => go(b.dataset.view));
+function go(v){
+  document.querySelectorAll('nav button[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  if(v==='contacts') loadContactsTable();
+  if(v==='bot') loadSettings();
+  if(v==='metrics') loadMetrics();
+  if(v==='setup') loadSetup();
+}
+
+// ---------- estado ----------
+let contacts = new Map(), current = null, filter = '', socket = null, status = {};
+async function boot(){
+  try { status = await api('/status'); } catch { return; }
+  $('login').style.display='none';
+  api('/settings').then(x => settingsCache = x).catch(()=>{});
+  if (status.default_password) toast('⚠️ Estás usando la contraseña por defecto. Configurá ADMIN_PASSWORD.');
+  await loadConvs();
+  socket = io({ auth: { role: 'admin' } });
+  socket.on('message', m => { if (current && m.contact_id === current) { appendMsg(m); scrollMsgs(); if (m.sender==='client') socket.emit('agent:open', current); } });
+  socket.on('contact', c => { contacts.set(c.id, c); renderConvs(); if (current === c.id) { renderSide(); renderChatHeader(); } updateBadge(); });
+  socket.on('contact_deleted', id => { contacts.delete(id); if (current===id) closeChat(); renderConvs(); });
+  socket.on('status', s => { const el = document.querySelector(`[data-mid="${s.id}"] .tk`); if (el) el.innerHTML = tickSvg(s.status); });
+  socket.on('seen', ({contactId}) => { if (contactId===current) document.querySelectorAll('.mrow.out .tk').forEach(t=>t.innerHTML=tickSvg('read')); });
+  socket.on('typing', ({contactId,on}) => { if (contactId===current) $('typingLine') && ($('typingLine').textContent = on ? `${botName()} está escribiendo…` : ''); });
+  socket.on('client_typing', ({contactId,on}) => { if (contactId===current) $('typingLine') && ($('typingLine').textContent = on ? 'El cliente está escribiendo…' : ''); });
+  socket.on('connect_error', () => {});
+}
+let settingsCache = null;
+const botName = () => settingsCache?.agent_name || 'El bot';
+
+async function loadConvs(){
+  const params = new URLSearchParams({ q: $('q').value, stage: $('stageFilter').value, channel: $('channelFilter').value, filter });
+  const rows = await api('/contacts?'+params);
+  contacts = new Map(rows.map(r=>[r.id,r]));
+  renderConvs(); updateBadge();
+}
+let qT; $('q').oninput = () => { clearTimeout(qT); qT = setTimeout(loadConvs, 250); };
+$('stageFilter').onchange = loadConvs;
+$('channelFilter').onchange = loadConvs;
+$('filters').onclick = e => { const b=e.target.closest('.chip'); if(!b) return; filter=b.dataset.f; document.querySelectorAll('#filters .chip').forEach(c=>c.classList.toggle('on',c===b)); loadConvs(); };
+
+function matchesFilter(c){
+  const q = $('q').value.toLowerCase(), st = $('stageFilter').value;
+  if (st && c.stage!==st) return false;
+  if ($('channelFilter').value && c.channel!==$('channelFilter').value) return false;
+  if (filter==='unread' && !c.unread) return false;
+  if (filter==='human' && !c.needs_human) return false;
+  if (filter==='bot_off' && c.bot_enabled) return false;
+  if (q && ![c.name,c.phone,c.notes,c.tags].some(v=>String(v||'').toLowerCase().includes(q))) return false;
+  return true;
+}
+function renderConvs(){
+  const list = [...contacts.values()].filter(matchesFilter).sort((a,b)=>String(b.last_message_at||b.created_at).localeCompare(String(a.last_message_at||a.created_at)));
+  $('convs').innerHTML = list.length ? list.map(c => `
+    <div class="conv ${c.id===current?'on':''}" data-id="${c.id}">
+      <div class="avatar">${esc(initials(c.name))}${chIcon(c.channel)}</div>
+      <div class="mid">
+        <div class="top"><span class="name">${esc(c.name||c.phone)}</span><span class="time">${ago(c.last_message_at||c.created_at)}</span></div>
+        <div class="prev">${esc(c.last_message_preview||'')}</div>
+        <div class="tags"><span class="pill st-${c.stage}">${STAGES[c.stage]||c.stage}</span>${c.needs_human?'<span class="pill human">Necesita humano</span>':''}${!c.bot_enabled&&!c.needs_human?'<span class="pill off">Bot pausado</span>':''}<span style="flex:1"></span>${c.unread?`<span class="unread">${c.unread}</span>`:''}</div>
+      </div>
+    </div>`).join('') : '<div class="empty" style="height:200px">Sin conversaciones</div>';
+}
+$('convs').onclick = e => { const el=e.target.closest('.conv'); if (el) openChat(Number(el.dataset.id)); };
+function updateBadge(){ const n=[...contacts.values()].filter(c=>c.needs_human).length; $('navBadge').style.display=n?'grid':'none'; $('navBadge').textContent=n; }
+
+// ---------- conversación ----------
+let lastDay = null;
+async function openChat(id){
+  current = id; lastDay = null;
+  $('v-inbox').classList.add('open');
+  const c = contacts.get(id);
+  $('chat').innerHTML = `
+    <div class="chat-h" id="chatH"></div>
+    <div class="window-warn" id="winWarn">⏱ Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp no deja mandar texto libre. Esperá a que escriba o usá una plantilla.</div>
+    <div class="msgs" id="msgs"></div>
+    <div class="typing" id="typingLine"></div>
+    <div class="composer"><textarea id="reply" rows="1" placeholder="Escribí como asesor…"></textarea><button class="send" id="sendBtn">Enviar</button></div>
+    <div class="hint">Enter envía · Shift+Enter nueva línea · Al responder vos, el bot se pausa en esta conversación</div>`;
+  renderChatHeader(); renderSide(); renderConvs();
+  const msgs = await api(`/contacts/${id}/messages`);
+  if (current !== id) return;
+  msgs.forEach(appendMsg); scrollMsgs();
+  socket.emit('agent:open', id);
+  $('reply').addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } });
+  $('reply').addEventListener('input', e => { e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,140)+'px'; });
+  $('sendBtn').onclick = sendReply;
+  $('reply').focus();
+}
+function closeChat(){ current=null; $('v-inbox').classList.remove('open'); $('chat').innerHTML='<div class="empty"><p>Elegí una conversación</p></div>'; $('side').innerHTML=''; }
+function renderChatHeader(){
+  const c = contacts.get(current); if (!c || !$('chatH')) return;
+  $('chatH').innerHTML = `
+    <button class="back" id="backBtn">‹</button>
+    <div class="avatar">${esc(initials(c.name))}${chIcon(c.channel)}</div>
+    <div class="info"><b>${esc(c.name||'Sin nombre')}</b><span>${esc(c.phone)} · ${c.channel==='whatsapp'?'WhatsApp':'Chat web'} · ${STAGES[c.stage]}</span></div>
+    <div class="toggle">Bot ${c.bot_enabled?'activo':'pausado'} <button class="sw ${c.bot_enabled?'on':''}" id="botSw" aria-label="Activar o pausar bot"></button></div>
+    <button class="btn sm" id="sideBtn" title="Ficha">Ficha</button>`;
+  $('botSw').onclick = () => patch(current, { bot_enabled: c.bot_enabled ? 0 : 1 });
+  $('backBtn').onclick = closeChat;
+  $('sideBtn').onclick = () => $('v-inbox').classList.toggle('showside');
+  const hrs = c.last_client_at ? (Date.now()-toDate(c.last_client_at))/36e5 : 999;
+  $('winWarn').style.display = c.channel==='whatsapp' && hrs>24 ? 'block' : 'none';
+}
+function appendMsg(m){
+  const box = $('msgs'); if (!box || box.querySelector(`[data-mid="${m.id}"]`)) return;
+  const d = toDate(m.created_at).toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+  if (d !== lastDay) { box.insertAdjacentHTML('beforeend', `<div class="day"><span>${d}</span></div>`); lastDay = d; }
+  const cls = m.sender==='client' ? 'in' : m.sender==='system' ? 'sys' : `out ${m.sender}`;
+  const who = m.sender==='bot' ? `🤖 ${esc(botName())}` : m.sender==='agent' ? '👤 Asesor' : '';
+  box.insertAdjacentHTML('beforeend', `<div class="mrow ${cls}" data-mid="${m.id}"><div class="bub">${who?`<span class="who">${who}</span>`:''}${linkify(m.body)}<span class="meta">${hhmm(m.created_at)}${m.sender==='bot'||m.sender==='agent'?`<span class="tk">${tickSvg(m.status)}</span>`:''}</span></div>${m.sender==='bot'&&!/^👉 https?:\/\//.test(m.body)?`<button class="fix" data-fix="${m.id}" title="Enseñale al bot cómo lo dirías vos">✏️ Corregir</button>`:''}</div>`);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-fix]'); if (!b) return;
+  const row = b.closest('.mrow'); const body = row.querySelector('.bub').cloneNode(true);
+  body.querySelectorAll('.who,.meta').forEach(x=>x.remove());
+  $('fixOld').textContent = body.textContent.trim(); $('fixNew').value = ''; $('fixSend').checked = false;
+  $('fixModal').dataset.id = b.dataset.fix; $('fixModal').classList.add('on'); $('fixNew').focus();
+});
+$('fixCancel').onclick = () => $('fixModal').classList.remove('on');
+$('fixSave').onclick = async () => {
+  const reply = $('fixNew').value.trim(); if (!reply) return;
+  try {
+    await api(`/messages/${$('fixModal').dataset.id}/correct`, { method:'POST', body: JSON.stringify({ reply }) });
+    if ($('fixSend').checked && current) socket.emit('agent:send', { contactId: current, body: reply, keepBot: true });
+    $('fixModal').classList.remove('on'); toast('Listo: el bot aprendió esta respuesta');
+  } catch(e){ toast(e.message); }
+};
+const scrollMsgs = () => { const b=$('msgs'); if (b) b.scrollTop = b.scrollHeight; };
+function sendReply(){
+  const t = $('reply').value.trim(); if (!t || !current) return;
+  $('reply').value=''; $('reply').style.height='auto';
+  socket.emit('agent:send', { contactId: current, body: t });
+}
+
+async function patch(id, fields){
+  try { const c = await api(`/contacts/${id}`, { method:'PATCH', body: JSON.stringify(fields) }); contacts.set(c.id,c); renderConvs(); if (id===current){ renderSide(); renderChatHeader(); } return c; }
+  catch(e){ toast(e.message); }
+}
+function renderSide(){
+  const c = contacts.get(current); if (!c) return;
+  const provs = settingsCache?.provinces || {PBA:{label:'PBA'},CABA:{label:'CABA'},CBA:{label:'Córdoba'},MZA:{label:'Mendoza'},SF:{label:'Santa Fe'}};
+  $('side').innerHTML = `
+    <button class="btn sm side-close" onclick="document.getElementById('v-inbox').classList.remove('showside')">✕ Cerrar ficha</button>
+    <h4>Ficha del contacto</h4>
+    <div class="field"><label>Nombre</label><input id="f_name" value="${esc(c.name)}"></div>
+    <div class="field"><label>Teléfono</label><input id="f_phone" value="${esc(c.phone)}"></div>
+    <div class="field"><label>Provincia</label><select id="f_province"><option value="">—</option>${Object.entries(provs).map(([k,p])=>`<option value="${k}" ${c.province===k?'selected':''}>${esc(p.label)}</option>`).join('')}</select></div>
+    <div class="field"><label>Etapa</label><select id="f_stage">${Object.entries(STAGES).map(([k,v])=>`<option value="${k}" ${c.stage===k?'selected':''}>${v}</option>`).join('')}</select></div>
+    <div class="field"><label>Etiquetas (separadas por coma)</label><input id="f_tags" value="${esc(c.tags)}" placeholder="vip, slots, fútbol"></div>
+    <div class="field"><label>Notas internas</label><textarea id="f_notes">${esc(c.notes)}</textarea></div>
+    <button class="btn primary sm" id="saveSide">Guardar ficha</button>
+    <h4>Datos</h4>
+    <div class="kv"><span>Canal</span><b>${c.channel==='whatsapp'?'WhatsApp':'Chat web'}</b><span>Origen</span><b>${esc(c.source)||'—'}</b><span>Alta</span><b>${toDate(c.created_at).toLocaleString('es-AR')}</b><span>Acepta novedades</span><b>${c.marketing_optin?'Sí':'No'}</b><span>Guion</span><b>${c.prompt_version?'v'+c.prompt_version:'—'}</b></div>
+    <h4>Acciones</h4>
+    <div class="row-btns">
+      ${c.needs_human?'<button class="btn sm" id="resolveBtn">Marcar atendido</button>':''}
+      <a class="btn sm" href="https://wa.me/${String(c.phone).replace(/\D/g,'')}" target="_blank" rel="noopener">Abrir en WhatsApp</a>
+      <button class="btn sm danger" id="delBtn">Borrar</button>
+    </div>`;
+  $('saveSide').onclick = async () => { await patch(current, { name:$('f_name').value, phone:$('f_phone').value, province:$('f_province').value||null, stage:$('f_stage').value, tags:$('f_tags').value, notes:$('f_notes').value }); toast('Ficha guardada'); };
+  $('f_stage').onchange = () => patch(current, { stage: $('f_stage').value });
+  if ($('resolveBtn')) $('resolveBtn').onclick = () => patch(current, { needs_human: 0 });
+  $('delBtn').onclick = async () => { if (!confirm('¿Borrar este contacto y toda su conversación?')) return; await api(`/contacts/${current}`, {method:'DELETE'}); };
+}
+
+// ---------- contactos ----------
+async function loadContactsTable(){
+  const rows = await api('/contacts?'+new URLSearchParams({ q:$('cq').value, stage:$('cstage').value, limit:5000 }));
+  $('ctable').innerHTML = rows.map(c=>`<tr data-id="${c.id}" style="cursor:pointer"><td>${esc(c.name)||'—'}</td><td>${esc(c.phone)}</td><td>${esc(c.province)||'—'}</td><td><span class="pill st-${c.stage}">${STAGES[c.stage]}</span></td><td>${c.channel==='whatsapp'?'WhatsApp':'Web'}</td><td>${esc(c.source)}</td><td>${ago(c.last_message_at)}</td></tr>`).join('') || '<tr><td colspan="7" style="color:var(--muted)">Sin contactos</td></tr>';
+}
+$('ctable').onclick = e => { const tr=e.target.closest('tr[data-id]'); if(!tr) return; go('inbox'); loadConvs().then(()=>openChat(Number(tr.dataset.id))); };
+let cqT; $('cq').oninput = () => { clearTimeout(cqT); cqT=setTimeout(loadContactsTable,250); };
+$('cstage').onchange = loadContactsTable;
+$('importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const r = await api('/import', { method:'POST', body: await f.text(), raw:true, headers:{'Content-Type':'text/csv'} }); toast(`Importados ${r.added} · repetidos ${r.dup} · inválidos ${r.invalid}`); loadContactsTable(); }
+  catch(err){ toast(err.message); }
+  e.target.value='';
+};
+$('addContact').onclick = async () => {
+  const name = prompt('Nombre'); if (name===null) return;
+  const phone = prompt('Celular con código de área (ej: 223 1234567)'); if (!phone) return;
+  try { await api('/contacts', { method:'POST', body: JSON.stringify({ name, phone }) }); toast('Contacto agregado'); loadContactsTable(); } catch(e){ toast(e.message); }
+};
+
+// ---------- bot ----------
+const S_FIELDS = ['agent_name','agent_title','style_guide','brand_name','welcome_message','model','bot_reply_delay_ms','deposit_instructions','script','max_followups','wa_followup_template'];
+async function loadSettings(){
+  const s = settingsCache = await api('/settings');
+  S_FIELDS.forEach(k => { if ($('s_'+k)) $('s_'+k).value = s[k] ?? ''; });
+  $('verPill').textContent = 'Versión actual: v' + s.prompt_version.id;
+  $('provs').innerHTML = Object.entries(s.provinces).map(([k,p])=>`<tr data-k="${k}"><td><b>${k}</b></td><td><input data-f="label" value="${esc(p.label)}"></td><td><input data-f="link" value="${esc(p.link)}"></td><td><input data-f="bonus" value="${esc(p.bonus)}" placeholder="Ej: 100% hasta $50.000 en tu primera carga"></td><td><input data-f="deposit_account" value="${esc(p.deposit_account)}" placeholder="Alias: xxx.bplay · Titular: ..."></td></tr>`).join('');
+  $('fus').innerHTML = ''; (s.followups||[]).forEach(addFuRow);
+  const L = s.landing || {};
+  ['headline','subheadline','cta','pixel_id','logo_url','footer'].forEach(k => $('l_'+k).value = L[k] || '');
+  $('l_trust_points').value = (L.trust_points||[]).join('\n');
+  $('l_steps').value = (L.steps||[]).join('\n');
+  $('l_faq').value = (L.faq||[]).map(f => `${f.q} | ${f.a}`).join('\n');
+  loadExamples();
+  const vers = await api('/prompt_versions');
+  $('versions').innerHTML = '<option value="">Historial de versiones…</option>' + vers.map(v=>`<option value="${v.id}">v${v.id} · ${toDate(v.created_at).toLocaleDateString('es-AR')} ${esc(v.note||'')}</option>`).join('');
+}
+function addFuRow(f={stage:'link_enviado',after_hours:2,text:''}){
+  const row = document.createElement('div'); row.className='fu';
+  row.innerHTML = `<select>${Object.entries(STAGES).map(([k,v])=>`<option value="${k}" ${f.stage===k?'selected':''}>${v}</option>`).join('')}</select><input type="number" min="0.5" step="0.5" value="${f.after_hours}" title="Horas sin respuesta"><textarea placeholder="Mensaje">${esc(f.text)}</textarea><button class="btn sm danger" title="Quitar">✕</button>`;
+  row.querySelector('button').onclick = () => row.remove();
+  $('fus').appendChild(row);
+}
+$('addFu').onclick = () => addFuRow();
+$('versions').onchange = async e => {
+  if (!e.target.value) return;
+  const v = await api('/prompt_versions/'+e.target.value);
+  if (confirm(`¿Cargar el guion de la v${v.id} en el editor? (se guarda como versión nueva sólo si apretás Guardar)`)) $('s_script').value = v.script;
+  e.target.value='';
+};
+$('saveBot').onclick = async () => {
+  const body = {};
+  S_FIELDS.forEach(k => { body[k] = $('s_'+k).value; });
+  body.bot_reply_delay_ms = Number(body.bot_reply_delay_ms)||0; body.max_followups = Number(body.max_followups)||0;
+  body.provinces = {};
+  document.querySelectorAll('#provs tr').forEach(tr => { const o={}; tr.querySelectorAll('input').forEach(i=>o[i.dataset.f]=i.value.trim()); body.provinces[tr.dataset.k]=o; });
+  body.followups = [...document.querySelectorAll('#fus .fu')].map(r => ({ stage:r.querySelector('select').value, after_hours:Number(r.querySelector('input').value)||2, text:r.querySelector('textarea').value.trim() })).filter(f=>f.text);
+  body.version_note = $('versionNote').value;
+  const lines = id => $(id).value.split('\n').map(x=>x.trim()).filter(Boolean);
+  body.landing = { headline:$('l_headline').value, subheadline:$('l_subheadline').value, cta:$('l_cta').value, pixel_id:$('l_pixel_id').value.trim(),
+    logo_url:$('l_logo_url').value.trim(), footer:$('l_footer').value, trust_points:lines('l_trust_points'), steps:lines('l_steps'),
+    faq: lines('l_faq').map(l => { const i = l.indexOf('|'); return i < 0 ? null : { q:l.slice(0,i).trim(), a:l.slice(i+1).trim() }; }).filter(Boolean) };
+  try { const r = await api('/settings', { method:'PUT', body: JSON.stringify(body) }); $('versionNote').value=''; toast('Guardado · guion v'+r.prompt_version.id); loadSettings(); } catch(e){ toast(e.message); }
+};
+$('analyze').onclick = async () => {
+  const out = $('analysisOut'); $('analyze').disabled = true;
+  out.innerHTML = '<p style="color:var(--muted)">Analizando conversaciones… (puede tardar un minuto)</p>';
+  try {
+    const r = await api('/analyze', { method:'POST' });
+    out.innerHTML = `<p style="font-size:12.5px;color:var(--muted)">Se analizaron ${r.won} conversaciones que convirtieron y ${r.lost} que no.</p><div class="analysis">${esc(r.analysis)}</div>` +
+      (r.proposed_script ? `<h3 style="margin:16px 0 8px">Guion propuesto</h3><textarea class="script" id="proposed">${esc(r.proposed_script)}</textarea><div class="row-btns" style="margin-top:8px"><button class="btn primary" id="useProposed">Pasar al editor</button></div>` : '');
+    if ($('useProposed')) $('useProposed').onclick = () => { $('s_script').value = $('proposed').value; $('versionNote').value = 'Mejora sugerida por Laboratorio'; $('s_script').scrollIntoView({behavior:'smooth'}); toast('Revisalo y apretá Guardar'); };
+  } catch(e){ out.innerHTML = `<p style="color:var(--crit)">${esc(e.message)}</p>`; }
+  $('analyze').disabled = false;
+};
+
+// ---------- entrenamiento ----------
+const KIND = { chat:'De tus chats', correction:'Corrección', manual:'Manual' };
+async function loadExamples(){
+  const ex = await api('/examples');
+  $('exCount').textContent = ex.filter(e=>e.active).length + ' activos';
+  $('exList').innerHTML = ex.length ? ex.map(e => `<div class="ex ${e.active?'':'off'}" data-id="${e.id}">
+      <div><div class="k">${KIND[e.kind]||e.kind}</div><div class="c">👤 ${esc(e.context)}</div>${e.bad_reply?`<div class="b">🤖 ${esc(e.bad_reply)}</div>`:''}<div class="r">✅ ${esc(e.reply)}</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm" data-act="toggle">${e.active?'Pausar':'Activar'}</button><button class="btn sm danger" data-act="del">Borrar</button></div>
+    </div>`).join('') : '<p style="color:var(--muted);font-size:13px">Todavía no hay ejemplos.</p>';
+}
+$('exList').onclick = async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.closest('.ex').dataset.id;
+  if (b.dataset.act === 'del') { if (!confirm('¿Borrar este ejemplo?')) return; await api('/examples/'+id, {method:'DELETE'}); }
+  else await api('/examples/'+id, {method:'PATCH', body: JSON.stringify({ active: b.textContent==='Activar' })});
+  loadExamples();
+};
+$('addEx').onclick = async () => {
+  const context = prompt('¿Qué dice el cliente?'); if (!context) return;
+  const reply = prompt('¿Qué le respondés vos?'); if (!reply) return;
+  try { await api('/examples', {method:'POST', body: JSON.stringify({ context, reply })}); loadExamples(); } catch(e){ toast(e.message); }
+};
+async function readChatFile(f){
+  if (/\.zip$/i.test(f.name)) {
+    if (!window.JSZip) await new Promise((ok, ko) => { const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; sc.onload=ok; sc.onerror=ko; document.head.appendChild(sc); });
+    const zip = await JSZip.loadAsync(f); let out = '';
+    for (const name of Object.keys(zip.files)) if (/\.txt$/i.test(name)) out += '\n' + await zip.files[name].async('string');
+    return out;
+  }
+  return f.text();
+}
+$('learnBtn').onclick = async () => {
+  const files = [...$('chatFiles').files], owner = $('ownerName').value.trim();
+  if (!files.length) return toast('Elegí al menos un chat exportado');
+  if (!owner) return toast('Poné cómo figurás vos en el chat');
+  $('learnBtn').disabled = true; $('learnOut').textContent = 'Leyendo tus chats… (puede tardar 1-2 minutos)';
+  try {
+    const texts = await Promise.all(files.map(readChatFile));
+    const r = await api('/learn', { method:'POST', body: JSON.stringify({ owner, text: texts.map((t,i)=>`### Chat ${i+1}\n${t}`).join('\n\n') }) });
+    $('s_style_guide').value = r.style_guide; $('learnOut').textContent = `✅ Listo: estilo actualizado y ${r.added} ejemplos nuevos.`;
+    loadExamples();
+  } catch(e){ $('learnOut').textContent = '⚠️ ' + e.message; }
+  $('learnBtn').disabled = false;
+};
+
+// ---------- métricas ----------
+async function loadMetrics(){
+  const m = await api('/metrics?days='+$('mdays').value);
+  const f = Object.fromEntries(m.funnel.map(x=>[x.stage,x.count]));
+  $('mstats').innerHTML = `
+    <div class="stat"><div class="l">Contactos nuevos</div><div class="v">${m.total}</div><div class="s">${m.perdidos} perdidos</div></div>
+    <div class="stat"><div class="l">Registrados</div><div class="v">${f.registrado}</div><div class="s">${pct(f.registrado,m.total)} de los contactos</div></div>
+    <div class="stat"><div class="l">Primeras cargas</div><div class="v">${m.ftd}</div><div class="s">${pct(m.ftd,m.total)} de los contactos · ${pct(m.ftd,f.registrado)} de registrados</div></div>
+    <div class="stat"><div class="l">Ingreso CPA estimado</div><div class="v">USD ${m.cpa_income_usd}</div><div class="s">USD 10 por primera carga (sin el 16% de revenue share)</div></div>`;
+  const max = Math.max(1, m.funnel[0].count);
+  $('mfunnel').innerHTML = m.funnel.map((x,i)=>`<div class="fr" title="${x.label}: ${x.count} contactos"><span class="fl">${x.label}</span><div class="track"><div class="bar" style="width:${x.count/max*100}%"></div></div><span class="fv">${x.count} <small>${i?pct(x.count,m.funnel[i-1].count)+' del paso anterior':''}</small></span></div>`).join('');
+  const rows = (arr, lab) => arr.map(r=>`<tr><td>${lab(r.key)}</td><td class="num">${r.total}</td><td class="num">${r.registrados} <small style="color:var(--muted)">${pct(r.registrados,r.total)}</small></td><td class="num"><b>${r.ftd}</b> <small style="color:var(--muted)">${pct(r.ftd,r.total)}</small></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted)">Sin datos</td></tr>';
+  $('mver').innerHTML = rows(m.by_version, k => k==='—' ? 'Sin bot' : 'v'+k);
+  $('mch').innerHTML = rows(m.by_channel, k => k==='whatsapp'?'WhatsApp':k==='web'?'Chat web':k);
+  $('msrc').innerHTML = rows(m.by_source, k => esc(k));
+}
+$('mdays').onchange = loadMetrics;
+
+// ---------- conexión ----------
+async function loadSetup(){
+  const s = status = await api('/status');
+  $('setupStatus').innerHTML = `
+    <h3>Estado</h3>
+    <div class="status-line"><span class="dot ${s.ai?'ok':'no'}"></span><b>IA (Claude)</b> ${s.ai?'activa':'— falta ANTHROPIC_API_KEY (el bot responde en modo básico)'}</div>
+    <div class="status-line"><span class="dot ${s.whatsapp?'ok':'no'}"></span><b>WhatsApp API</b> ${s.whatsapp?'conectada':'— faltan WA_TOKEN y WA_PHONE_NUMBER_ID'}</div>
+    <div class="status-line"><span class="dot ${s.default_password?'no':'ok'}"></span><b>Contraseña del panel</b> ${s.default_password?'— usando la de fábrica, configurá ADMIN_PASSWORD':'configurada'}</div>
+    <h3 style="margin-top:20px">Webhook de WhatsApp (pegalo en Meta for Developers → WhatsApp → Configuración)</h3>
+    <div>URL de devolución de llamada:</div><span class="code">${esc(s.webhook_url)}</span>
+    <div>Token de verificación:</div><span class="code">${esc(s.verify_token)}</span>
+    <div style="font-size:12.5px;color:var(--muted)">Suscribite al campo <b>messages</b>.</div>
+    <h3 style="margin-top:20px">Landing + chat (destino de tus anuncios)</h3>
+    <span class="code">${esc(s.landing_url)}</span>
+    <div style="font-size:12.5px;color:var(--muted)">Agregá <code>?src=nombre-campaña</code> o UTMs para medir cada anuncio en Métricas → Por origen. Ej: <code>${esc(s.landing_url)}?src=reactivacion</code></div>
+    <h3 style="margin-top:20px">Chat solo / burbuja para otra web</h3>
+    <div>Link directo (para botones, bio, anuncios):</div><span class="code">${esc(s.chat_url)}</span>
+    <div>Burbuja flotante para la landing (pegar antes de &lt;/body&gt;):</div><span class="code">${esc(s.widget)}</span>
+    <div style="font-size:12.5px;color:var(--muted)">Cualquier botón con <code>data-open-chat</code> también abre el chat. Podés pasar <code>?prov=PBA</code> en la URL de la landing para preseleccionar provincia.</div>`;
+}
+
+// mantener settings para nombre del bot / provincias
+api('/settings').then(s => settingsCache = s).catch(()=>{});
+boot();
+setInterval(() => { if (current) renderChatHeader(); }, 60000);
+</script>
+</body>
+</html>
