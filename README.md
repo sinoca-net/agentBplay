@@ -3,7 +3,20 @@
 **Circuito principal:** anuncio en Meta → landing (`/`) con el chat integrado → bot + vos desde el panel → link oficial de BPLAY → primera carga.
 WhatsApp es opcional: si algún día conectás un número, entra a la misma bandeja.
 
-## Novedades
+## Versión 3: carga primero + DNI para el CPA
+- **El bot persigue dos objetivos:** (1) que la persona transfiera la **carga mínima de $1.000** a la **cuenta oficial de su provincia** y se lleve el **bono de $10.000**; (2) que **se registre** con el link oficial, con el mismo nombre y DNI.
+- Siempre aclara que la transferencia tiene que salir de una **cuenta a nombre de la misma persona** que se registra.
+- Cuando la persona transfiere, el bot le pide **DNI, titular y monto** y los guarda en la ficha. En la bandeja aparece "💰 Cargó" y un aviso.
+- **Verificar con tu afiliador:**
+  - **Contactos → Descargar cargas** te baja un CSV con fecha, DNI, titular y monto del rango de fechas que elijas.
+  - Después, en cada ficha, tocá **✅ Confirmar CPA**.
+  - El filtro **💰 Por verificar** te muestra las cargas pendientes.
+- **Métricas:** cargaron, CPA (cargó + registrado), CPA confirmados y la plata en USD.
+- **Etapas nuevas:** Nuevo → Datos de carga enviados → Cargó → Link enviado → Registrado → CPA confirmado. "CPA confirmado" lo marcás sólo vos.
+- **Cargá la cuenta oficial de cada provincia en Bot → Provincias.** Si falta, el bot no inventa datos: te avisa y te deriva la charla.
+- **Pixel:** dispara también *AddPaymentInfo* y *CargaReportada* cuando alguien reporta la transferencia.
+
+## Novedades anteriores
 - **Landing en `/`:** título, bonos por provincia, señales de confianza, pasos, preguntas frecuentes y el chat integrado. Todo se edita desde **Bot → Landing**. El Pixel registra *PageView*, *Lead* (cuando la persona deja sus datos) y *LinkRegistro* (cuando el bot le manda el link).
 - **Cuenta oficial de carga por provincia:** se carga en **Bot → Provincias**. El bot pasa sólo la de la provincia del cliente y nunca otra.
 - **Entrenar para que responda como vos (Bot → Entrenar):**

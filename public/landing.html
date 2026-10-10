@@ -125,6 +125,7 @@
     if (e.origin !== location.origin || !window.fbq) return;
     if (e.data === 'bpc:lead') fbq('track', 'Lead');
     if (e.data === 'bpc:link') fbq('trackCustom', 'LinkRegistro');
+    if (e.data === 'bpc:carga') { fbq('track', 'AddPaymentInfo'); fbq('trackCustom', 'CargaReportada'); }
   });
 
   // botón flotante en celu: se oculta cuando el chat está a la vista

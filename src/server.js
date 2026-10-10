@@ -228,6 +228,7 @@ admin.get('/contacts', (req, res) => {
   if (filter === 'human') where.push('needs_human=1');
   if (filter === 'unread') where.push('unread>0');
   if (filter === 'bot_off') where.push('bot_enabled=0');
+  if (filter === 'verify') where.push("dni IS NOT NULL AND dni!='' AND cpa_confirmed_at IS NULL AND stage!='perdido'");
   if (req.query.channel) { where.push('channel=@channel'); params.channel = req.query.channel; }
   const rows = store.db.prepare(`SELECT * FROM contacts ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY COALESCE(last_message_at, created_at) DESC LIMIT ${Math.min(Number(req.query.limit) || 300, 5000)}`).all(params);
@@ -253,6 +254,8 @@ admin.patch('/contacts/:id', (req, res) => {
   if (f.phone !== undefined) { f.phone = store.normalizePhone(f.phone); if (!f.phone) return res.status(400).json({ error: 'Teléfono inválido' }); }
   if (f.stage && !store.STAGES.includes(f.stage)) return res.status(400).json({ error: 'Etapa inválida' });
   if (f.bot_enabled === 1 || f.bot_enabled === true) { f.bot_enabled = 1; f.needs_human = 0; }
+  if (f.dni !== undefined) f.dni = String(f.dni || '').replace(/\D/g, '') || null;
+  if (f.stage === 'cpa_confirmado') f.cpa_confirmed_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
   try {
     const c = store.updateContact(Number(req.params.id), f);
     io.to('admins').emit('contact', c);
@@ -269,10 +272,20 @@ admin.delete('/contacts/:id', (req, res) => {
 const csvCell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
 admin.get('/export.csv', (_req, res) => {
   const rows = store.db.prepare('SELECT * FROM contacts ORDER BY id').all();
-  const cols = ['id', 'name', 'phone', 'province', 'stage', 'channel', 'source', 'tags', 'notes', 'marketing_optin', 'created_at', 'last_message_at'];
+  const cols = ['id', 'name', 'phone', 'province', 'stage', 'dni', 'titular', 'deposit_amount', 'deposit_at', 'cpa_confirmed_at', 'channel', 'source', 'tags', 'notes', 'marketing_optin', 'created_at', 'last_message_at'];
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="contactos-bplay.csv"');
   res.send('﻿' + [cols.join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\n'));
+});
+
+// Cargas con DNI para verificar con el afiliador (?desde=YYYY-MM-DD&hasta=YYYY-MM-DD)
+admin.get('/cargas.csv', (req, res) => {
+  const desde = req.query.desde || '2000-01-01', hasta = req.query.hasta || '2100-01-01';
+  const rows = store.db.prepare(`SELECT * FROM contacts WHERE dni IS NOT NULL AND dni!='' AND date(deposit_at) BETWEEN date(?) AND date(?) ORDER BY deposit_at`).all(desde, hasta);
+  const cols = [['deposit_at', 'Fecha carga'], ['dni', 'DNI'], ['titular', 'Titular'], ['deposit_amount', 'Monto'], ['province', 'Provincia'], ['name', 'Nombre (chat)'], ['phone', 'Teléfono'], ['stage', 'Etapa'], ['cpa_confirmed_at', 'CPA confirmado']];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="cargas-${desde}-a-${hasta}.csv"`);
+  res.send('\uFEFF' + [cols.map(c => c[1]).join(','), ...rows.map(r => cols.map(c => csvCell(r[c[0]])).join(','))].join('\n'));
 });
 
 // Importar contactos (CSV con columnas nombre/name, telefono/phone, provincia/province opcional)
@@ -304,7 +317,7 @@ admin.post('/import', express.text({ type: '*/*', limit: '20mb' }), (req, res) =
 
 admin.get('/settings', (_req, res) => {
   const s = store.getSettings();
-  delete s._session_secret; delete s._vapid;
+  for (const k of Object.keys(s)) if (k.startsWith('_')) delete s[k];
   res.json({ ...s, prompt_version: store.currentPromptVersion() });
 });
 
@@ -325,34 +338,45 @@ admin.get('/prompt_versions', (_req, res) => {
 admin.get('/prompt_versions/:id', (req, res) => res.json(store.db.prepare('SELECT * FROM prompt_versions WHERE id=?').get(req.params.id)));
 
 // Métricas del embudo
-const ORDER = ['nuevo', 'link_enviado', 'registrado', 'validado', 'primera_carga', 'activo'];
+const ORDER = ['nuevo', 'datos_carga', 'cargo', 'link_enviado', 'registrado', 'cpa_confirmado', 'activo'];
 admin.get('/metrics', (req, res) => {
   const days = Number(req.query.days) || 30;
-  const contacts = store.db.prepare(`SELECT id, stage, channel, source, prompt_version, needs_human FROM contacts WHERE created_at >= datetime('now', ?)`).all(`-${days} days`);
+  const contacts = store.db.prepare(`SELECT id, stage, channel, source, prompt_version, needs_human, dni, cpa_confirmed_at FROM contacts WHERE created_at >= datetime('now', ?)`).all(`-${days} days`);
   const reachedRows = store.db.prepare("SELECT contact_id, json_extract(data,'$.to') AS st FROM events WHERE type='stage'").all();
-  const reached = new Map();
+  const reached = new Map(), seen = new Map();
   for (const r of reachedRows) {
     const i = ORDER.indexOf(r.st);
     if (i >= 0) reached.set(r.contact_id, Math.max(reached.get(r.contact_id) ?? 0, i));
+    if (!seen.has(r.contact_id)) seen.set(r.contact_id, new Set());
+    seen.get(r.contact_id).add(r.st);
   }
   const maxIdx = c => Math.max(reached.get(c.id) ?? 0, ORDER.indexOf(c.stage));
-  const funnel = ORDER.map((st, i) => ({ stage: st, label: agent.STAGE_LABELS[st], count: contacts.filter(c => maxIdx(c) >= i).length }));
+  // "Datos de carga" y "Cargó" no se infieren por orden: el link puede ir antes que la carga
+  const reachedStage = (c, st, i) => {
+    if (st === 'cargo') return !!c.dni;
+    if (st === 'datos_carga') return !!c.dni || c.stage === 'datos_carga' || !!seen.get(c.id)?.has('datos_carga');
+    return maxIdx(c) >= i;
+  };
+  const funnel = ORDER.map((st, i) => ({ stage: st, label: agent.STAGE_LABELS[st], count: contacts.filter(c => reachedStage(c, st, i)).length }));
   const group = key => {
     const g = {};
     for (const c of contacts) {
       const k = c[key] ?? '—';
       g[k] = g[k] || { key: k, total: 0, registrados: 0, ftd: 0 };
       g[k].total++;
-      if (maxIdx(c) >= 2) g[k].registrados++;
-      if (maxIdx(c) >= 4) g[k].ftd++;
+      if (c.dni) g[k].registrados++;           // cargaron (con DNI)
+      if (c.dni && maxIdx(c) >= 4) g[k].ftd++;   // cargaron + registrados = CPA
     }
     return Object.values(g).sort((a, b) => b.total - a.total);
   };
-  const ftd = funnel[4].count;
+  const cargas = contacts.filter(c => c.dni).length;
+  const ftd = contacts.filter(c => c.dni && maxIdx(c) >= 4).length;             // cargó + registrado
+  const cpaConfirmados = contacts.filter(c => c.cpa_confirmed_at).length;
   const daily = store.db.prepare(`SELECT date(created_at) AS d, COUNT(*) AS n FROM contacts WHERE created_at >= datetime('now', ?) GROUP BY d ORDER BY d`).all(`-${days} days`);
-  const ftdDaily = store.db.prepare(`SELECT date(created_at) AS d, COUNT(DISTINCT contact_id) AS n FROM events WHERE type='stage' AND json_extract(data,'$.to')='primera_carga' AND created_at >= datetime('now', ?) GROUP BY d`).all(`-${days} days`);
+  const ftdDaily = store.db.prepare(`SELECT date(created_at) AS d, COUNT(DISTINCT contact_id) AS n FROM events WHERE type='stage' AND json_extract(data,'$.to')='registrado' AND created_at >= datetime('now', ?) GROUP BY d`).all(`-${days} days`);
   res.json({
-    days, total: contacts.length, funnel, ftd, cpa_income_usd: ftd * 10,
+    days, total: contacts.length, funnel, ftd, cargas, cpa_confirmados: cpaConfirmados, cpa_income_usd: cpaConfirmados * 10, cpa_potential_usd: ftd * 10,
+    por_verificar: store.db.prepare("SELECT COUNT(*) AS n FROM contacts WHERE dni IS NOT NULL AND dni!='' AND cpa_confirmed_at IS NULL AND stage!='perdido'").get().n,
     perdidos: contacts.filter(c => c.stage === 'perdido').length,
     by_version: group('prompt_version'), by_channel: group('channel'), by_source: group('source').slice(0, 15),
     daily, ftd_daily: ftdDaily,

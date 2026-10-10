@@ -97,8 +97,13 @@
   if (mode === 'inline') document.body.classList.add('inline'); else if (mode) document.body.classList.add('embed');
   // avisa a la landing (Pixel) o dispara el Pixel si el chat está abierto solo
   function track(ev) {
-    if (window.parent !== window) { try { parent.postMessage(ev === 'Lead' ? 'bpc:lead' : 'bpc:link', location.origin); } catch {} }
-    else if (window.fbq) { ev === 'Lead' ? fbq('track', 'Lead') : fbq('trackCustom', ev); }
+    const msg = { Lead: 'bpc:lead', LinkRegistro: 'bpc:link', CargaReportada: 'bpc:carga' }[ev];
+    if (window.parent !== window) { try { msg && parent.postMessage(msg, location.origin); } catch {} }
+    else if (window.fbq) {
+      if (ev === 'Lead') fbq('track', 'Lead');
+      else if (ev === 'CargaReportada') { fbq('track', 'AddPaymentInfo'); fbq('trackCustom', 'CargaReportada'); }
+      else fbq('trackCustom', ev);
+    }
   }
   const $ = id => document.getElementById(id);
   const store = {

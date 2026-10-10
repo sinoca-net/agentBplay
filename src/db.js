@@ -112,7 +112,9 @@ function currentPromptVersion() {
 }
 
 // ---------- contacts ----------
-const STAGES = ['nuevo', 'link_enviado', 'registrado', 'validado', 'primera_carga', 'activo', 'perdido'];
+// Embudo: carga primero (transferencia + DNI), después registro. "cpa_confirmado" lo marcás vos al verificar con tu afiliador.
+const STAGES = ['nuevo', 'datos_carga', 'cargo', 'link_enviado', 'registrado', 'cpa_confirmado', 'activo', 'perdido'];
+const STAGE_RANK = Object.fromEntries(STAGES.map((s, i) => [s, i]));
 
 function normalizePhone(raw) {
   let d = String(raw || '').replace(/\D/g, '');
@@ -138,7 +140,7 @@ function getContactByPhone(phone) {
   return db.prepare('SELECT * FROM contacts WHERE phone=?').get(phone);
 }
 function updateContact(id, fields) {
-  const allowed = ['name', 'phone', 'province', 'stage', 'tags', 'notes', 'source', 'channel', 'bot_enabled', 'needs_human',
+  const allowed = ['name', 'phone', 'province', 'stage', 'tags', 'notes', 'source', 'channel', 'dni', 'titular', 'deposit_amount', 'deposit_at', 'cpa_confirmed_at', 'bot_enabled', 'needs_human',
     'unread', 'marketing_optin', 'prompt_version', 'followups_sent', 'last_client_at', 'last_outbound_at',
     'last_message_at', 'last_message_preview'];
   const keys = Object.keys(fields).filter(k => allowed.includes(k));
@@ -175,7 +177,41 @@ function addMessage(contactId, sender, body, extra = {}) {
   return msg;
 }
 
+// ---------- migraciones (bases ya creadas en Railway) ----------
+(function migrate() {
+  const cols = db.prepare('PRAGMA table_info(contacts)').all().map(c => c.name);
+  for (const [col, type] of [['dni', 'TEXT'], ['titular', 'TEXT'], ['deposit_amount', 'TEXT'], ['deposit_at', 'TEXT'], ['cpa_confirmed_at', 'TEXT']]) {
+    if (!cols.includes(col)) db.exec(`ALTER TABLE contacts ADD COLUMN ${col} ${type}`);
+  }
+  db.exec("UPDATE contacts SET stage='cargo' WHERE stage='primera_carga'");
+  db.exec("UPDATE contacts SET stage='registrado' WHERE stage='validado'");
+
+  // Flujo "carga primero": actualiza guion, seguimientos y textos que todavía estén con los valores viejos
+  const has = db.prepare("SELECT 1 FROM settings WHERE key='_flow_v3'").get();
+  if (!has) {
+    const D = DEFAULT_SETTINGS;
+    const stored = Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map(r => [r.key, JSON.parse(r.value)]));
+    const put = (k, v) => db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k, JSON.stringify(v));
+    if (stored.script !== undefined) put('script', D.script);
+    if (stored.followups !== undefined) put('followups', D.followups);
+    if (stored.welcome_message !== undefined) put('welcome_message', D.welcome_message);
+    if (stored.provinces) {
+      for (const [k, p] of Object.entries(stored.provinces)) if (!p.bonus) p.bonus = D.provinces[k]?.bonus || '';
+      put('provinces', stored.provinces);
+    }
+    if (stored.landing) {
+      stored.landing.headline = D.landing.headline; stored.landing.subheadline = D.landing.subheadline; stored.landing.steps = D.landing.steps;
+      put('landing', stored.landing);
+    }
+    if (db.prepare('SELECT 1 FROM prompt_versions LIMIT 1').get()) {
+      db.prepare('INSERT INTO prompt_versions(script, note) VALUES(?,?)').run(D.script, 'Flujo carga primero: $1.000 → bono $10.000 + DNI');
+    }
+    put('_flow_v3', true);
+  }
+})();
+
 module.exports = {
+  STAGE_RANK,
   db, STAGES, getSettings, setSetting, currentPromptVersion, normalizePhone,
   getContact, getContactByPhone, updateContact, logEvent, addMessage,
 };

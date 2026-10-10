@@ -12,9 +12,16 @@ let sendOutbound = null;     // (contactId, sender, body) => msg
 function init(deps) { io = deps.io; sendOutbound = deps.sendOutbound; }
 
 const STAGE_LABELS = {
-  nuevo: 'Nuevo', link_enviado: 'Link enviado', registrado: 'Registrado', validado: 'Validado',
-  primera_carga: 'Primera carga', activo: 'Activo', perdido: 'Perdido',
+  nuevo: 'Nuevo', datos_carga: 'Datos de carga enviados', cargo: 'Cargó', link_enviado: 'Link enviado',
+  registrado: 'Registrado', cpa_confirmado: 'CPA confirmado', activo: 'Activo', perdido: 'Perdido',
 };
+const BOT_STAGES = store.STAGES.filter(s => s !== 'cpa_confirmado');
+// el bot sólo hace avanzar la etapa (o marca perdido), nunca la hace retroceder
+function advance(contactId, stage) {
+  const c = store.getContact(contactId);
+  if (!c || !stage) return;
+  if (stage === 'perdido' || (store.STAGE_RANK[stage] ?? -1) > (store.STAGE_RANK[c.stage] ?? -1)) store.updateContact(contactId, { stage });
+}
 
 function examplesBlock() {
   const rows = store.db.prepare(`SELECT * FROM examples WHERE active=1
@@ -48,14 +55,33 @@ Cuenta oficial BPLAY para transferencias en la provincia de este cliente: ${acco
 Nombre: ${contact.name || '(sin nombre)'}
 Provincia: ${contact.province ? `${contact.province} (${settings.provinces[contact.province]?.label || ''})` : '(desconocida)'}
 Etapa actual: ${contact.stage} (${STAGE_LABELS[contact.stage] || ''})
+Carga reportada: ${contact.deposit_amount ? `sí — $${contact.deposit_amount}, DNI ${contact.dni}, titular ${contact.titular}` : 'todavía no'}
 Canal: ${contact.channel === 'whatsapp' ? 'WhatsApp' : 'chat web'}
 
-Usá actualizar_contacto cada vez que sepas la provincia o la persona avance de etapa. Etapas: ${store.STAGES.join(', ')}.`;
+Usá actualizar_contacto cada vez que sepas la provincia o la persona avance de etapa. Etapas: ${BOT_STAGES.join(', ')}.`;
 }
 
 function tools(settings) {
   const keys = Object.keys(settings.provinces);
   return [
+    {
+      name: 'enviar_datos_carga',
+      description: 'Envía al cliente, como mensaje aparte y fácil de copiar, la cuenta oficial de BPLAY de su provincia para transferir la carga mínima de $1.000. Usala apenas sepas la provincia.',
+      input_schema: { type: 'object', properties: { provincia: { type: 'string', enum: keys } }, required: ['provincia'] },
+    },
+    {
+      name: 'registrar_carga',
+      description: 'Guarda en el CRM que el cliente transfirió: su número de DNI, el nombre completo del titular de la cuenta desde la que transfirió y el monto. Usala cuando el cliente te pasó esos datos después de transferir.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          dni: { type: 'string', description: 'Sólo números, 7 u 8 dígitos' },
+          titular: { type: 'string', description: 'Nombre y apellido del titular de la cuenta' },
+          monto: { type: 'string', description: 'Monto transferido en pesos, sólo números' },
+        },
+        required: ['dni', 'titular'],
+      },
+    },
     {
       name: 'enviar_link_registro',
       description: 'Envía al cliente, como mensaje aparte, el link de registro con tracking de afiliado de su provincia. Usala cuando ya sabés la provincia y la persona está lista para registrarse (o lo pide).',
@@ -68,7 +94,7 @@ function tools(settings) {
         type: 'object',
         properties: {
           provincia: { type: 'string', enum: keys },
-          etapa: { type: 'string', enum: store.STAGES },
+          etapa: { type: 'string', enum: BOT_STAGES },
           nombre: { type: 'string' },
         },
       },
@@ -115,12 +141,41 @@ async function sendBubbles(contactId, text) {
 }
 
 async function runTool(contact, name, input, settings) {
+  if (name === 'enviar_datos_carga') {
+    const p = settings.provinces[input.provincia];
+    if (!p) return 'Provincia inválida';
+    store.updateContact(contact.id, { province: input.provincia });
+    if (!p.deposit_account) {
+      store.updateContact(contact.id, { needs_human: 1 });
+      sendOutbound(contact.id, 'system', `⚠️ Falta cargar la cuenta oficial de ${p.label} en Bot → Provincias.`);
+      return 'No hay cuenta cargada para esta provincia. No inventes datos: mandale el link de registro y decile que en un ratito un asesor le pasa la cuenta.';
+    }
+    advance(contact.id, 'datos_carga');
+    store.logEvent(contact.id, 'deposit_info_sent', { province: input.provincia });
+    setTyping(contact.id, true); await sleep(900); setTyping(contact.id, false);
+    sendOutbound(contact.id, 'bot', `🏦 Cuenta oficial BPLAY ${p.label}\n${p.deposit_account}\n\nMínimo $1.000 · desde una cuenta a tu nombre`);
+    return `Datos de carga de ${p.label} enviados. Recordale que transfiera desde una cuenta a su nombre y que cuando lo haga te pase DNI, titular y monto.`;
+  }
+  if (name === 'registrar_carga') {
+    const dni = String(input.dni || '').replace(/\D/g, '');
+    if (dni.length < 7 || dni.length > 8) return 'El DNI no parece válido (tienen 7 u 8 números). Pedíselo de nuevo.';
+    const monto = String(input.monto || '').replace(/[^\d]/g, '');
+    const titular = String(input.titular || '').slice(0, 80);
+    store.updateContact(contact.id, { dni, titular, deposit_amount: monto || null, deposit_at: new Date().toISOString().slice(0, 19).replace('T', ' ') });
+    advance(contact.id, 'cargo');
+    store.logEvent(contact.id, 'deposit_reported', { dni, titular, monto });
+    sendOutbound(contact.id, 'system', `💰 Carga reportada: $${monto || '?'} · DNI ${dni} · titular ${titular}. Verificala con tu afiliador.`);
+    if (io) io.to(`c:${contact.id}`).emit('track', 'CargaReportada');
+    const c = store.getContact(contact.id);
+    return (c.name && titular && !titular.toLowerCase().includes(String(c.name).toLowerCase().split(' ')[0])
+      ? 'Ojo: el titular no coincide con el nombre del contacto. Confirmá amablemente que la cuenta es a su nombre. ' : '') +
+      'Carga registrada. Ahora mandale el link de registro y recordale usar el mismo nombre y DNI.';
+  }
   if (name === 'enviar_link_registro') {
     const p = settings.provinces[input.provincia];
     if (!p) return 'Provincia inválida';
-    const fields = { province: input.provincia };
-    if (['nuevo'].includes(store.getContact(contact.id).stage)) fields.stage = 'link_enviado';
-    store.updateContact(contact.id, fields);
+    store.updateContact(contact.id, { province: input.provincia });
+    advance(contact.id, 'link_enviado');
     store.logEvent(contact.id, 'link_sent', { province: input.provincia });
     if (io) io.to(`c:${contact.id}`).emit('track', 'LinkRegistro');
     setTyping(contact.id, true); await sleep(900); setTyping(contact.id, false);
@@ -130,9 +185,9 @@ async function runTool(contact, name, input, settings) {
   if (name === 'actualizar_contacto') {
     const f = {};
     if (input.provincia && settings.provinces[input.provincia]) f.province = input.provincia;
-    if (input.etapa && store.STAGES.includes(input.etapa)) f.stage = input.etapa;
     if (input.nombre) f.name = input.nombre.slice(0, 60);
     store.updateContact(contact.id, f);
+    if (input.etapa && BOT_STAGES.includes(input.etapa)) advance(contact.id, input.etapa);
     return 'Contacto actualizado.';
   }
   if (name === 'derivar_a_humano') {
@@ -212,9 +267,10 @@ async function fallbackReply(contact, settings) {
     return;
   }
   if (contact.stage === 'nuevo') {
-    const p = settings.provinces[prov];
-    await sendBubbles(contact.id, `¡Genial!${p.bonus ? ' Tu bono: ' + p.bonus + '.' : ''} Te dejo el link para crear tu cuenta. Tené el DNI a mano porque te pide validar identidad 👇`);
-    await runTool(contact, 'enviar_link_registro', { provincia: prov }, settings);
+    await sendBubbles(contact.id, '¡Genial! Cargando $1.000 te llevás $10.000 de bono 🎁 Transferí desde una cuenta a tu nombre y después pasame tu DNI 👇');
+    await runTool(contact, 'enviar_datos_carga', { provincia: prov }, settings);
+    await runTool(store.getContact(contact.id), 'enviar_link_registro', { provincia: prov }, settings);
+    await sendBubbles(contact.id, 'Registrate con el mismo nombre y DNI de la cuenta desde la que transferís 🙌');
     return;
   }
   store.updateContact(contact.id, { needs_human: 1 });
@@ -244,8 +300,8 @@ async function analyze() {
   if (!client) throw new Error('Falta ANTHROPIC_API_KEY');
   const settings = store.getSettings();
   const pick = (where) => store.db.prepare(`SELECT id, name, stage FROM contacts WHERE ${where} ORDER BY last_message_at DESC LIMIT 12`).all();
-  const won = pick("stage IN ('primera_carga','activo')");
-  const lost = pick("stage NOT IN ('primera_carga','activo') AND last_message_at < datetime('now','-1 day') AND (SELECT COUNT(*) FROM messages m WHERE m.contact_id=contacts.id AND m.sender='client')>0");
+  const won = pick("dni IS NOT NULL AND stage IN ('registrado','cpa_confirmado','activo')");
+  const lost = pick("(dni IS NULL OR stage NOT IN ('registrado','cpa_confirmado','activo')) AND last_message_at < datetime('now','-1 day') AND (SELECT COUNT(*) FROM messages m WHERE m.contact_id=contacts.id AND m.sender='client')>0");
   if (won.length + lost.length < 3) throw new Error('Todavía hay muy pocas conversaciones para analizar (mínimo 3).');
   const transcript = (c) => {
     const msgs = store.db.prepare("SELECT sender, body FROM messages WHERE contact_id=? ORDER BY id LIMIT 60").all(c.id);

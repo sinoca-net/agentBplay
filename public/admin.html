@@ -53,7 +53,10 @@ nav .spacer{flex:1}
 .pill{font-size:11px;border-radius:10px;padding:1px 7px;background:var(--line-2);color:var(--ink-2);white-space:nowrap}
 .pill.human{background:var(--crit-soft);color:var(--crit)}
 .pill.off{background:var(--warn-soft);color:var(--warn)}
-.pill.st-primera_carga,.pill.st-activo{background:var(--accent-soft);color:#11733f}
+.pill.st-cpa_confirmado,.pill.st-activo{background:var(--accent-soft);color:#11733f}
+.pill.st-cargo,.pill.st-registrado{background:#e7f0ff;color:#2b5bb5}
+.pill.money{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--accent-soft);color:#11733f}
 .pill.st-perdido{background:#eee;color:#888}
 .chat{display:flex;flex-direction:column;min-height:0;background:var(--chat-bg)}
 .chat-h{background:var(--panel);padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;min-height:62px}
@@ -213,6 +216,7 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
           <button class="chip" data-f="unread">Sin leer</button>
           <button class="chip" data-f="human">Necesita humano</button>
           <button class="chip" data-f="bot_off">Bot pausado</button>
+          <button class="chip" data-f="verify">💰 Por verificar</button>
         </div>
         <div style="display:flex;gap:6px"><select class="search" id="stageFilter"><option value="">Etapa: todas</option></select>
         <select class="search" id="channelFilter" style="max-width:140px"><option value="">Canal: todos</option><option value="web">Chat web</option><option value="whatsapp">WhatsApp</option></select></div>
@@ -238,8 +242,15 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
         <label class="btn" style="margin:0">Importar CSV<input type="file" id="importFile" accept=".csv,text/csv" hidden></label>
         <a class="btn" href="/api/admin/export.csv">Exportar CSV</a>
       </div>
+      <div class="card" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div><b>💰 Cargas para verificar con tu afiliador</b><div style="font-size:12.5px;color:var(--muted)">DNI, titular, monto y fecha de cada persona que transfirió.</div></div>
+        <span style="flex:1"></span>
+        <div class="field" style="margin:0"><label>Desde</label><input type="date" id="cDesde"></div>
+        <div class="field" style="margin:0"><label>Hasta</label><input type="date" id="cHasta"></div>
+        <button class="btn primary" id="expCargas">Descargar cargas</button>
+      </div>
       <div class="card" style="padding:0;overflow:auto;max-height:calc(100dvh - 190px)">
-        <table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Provincia</th><th>Etapa</th><th>Canal</th><th>Origen</th><th>Último mensaje</th></tr></thead><tbody id="ctable"></tbody></table>
+        <table><thead><tr><th>Nombre</th><th>Teléfono</th><th>DNI</th><th>Provincia</th><th>Etapa</th><th>Canal</th><th>Origen</th><th>Último mensaje</th></tr></thead><tbody id="ctable"></tbody></table>
       </div>
     </div>
   </section>
@@ -340,10 +351,10 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
       <div class="stats" id="mstats"></div>
       <div class="card"><h3>Embudo</h3><div class="funnel" id="mfunnel"></div></div>
       <div class="grid2">
-        <div class="card"><h3>Por versión del guion</h3><table><thead><tr><th>Versión</th><th class="num">Contactos</th><th class="num">Registro</th><th class="num">1ª carga</th></tr></thead><tbody id="mver"></tbody></table></div>
-        <div class="card"><h3>Por canal</h3><table><thead><tr><th>Canal</th><th class="num">Contactos</th><th class="num">Registro</th><th class="num">1ª carga</th></tr></thead><tbody id="mch"></tbody></table></div>
+        <div class="card"><h3>Por versión del guion</h3><table><thead><tr><th>Versión</th><th class="num">Contactos</th><th class="num">Cargaron</th><th class="num">CPA</th></tr></thead><tbody id="mver"></tbody></table></div>
+        <div class="card"><h3>Por canal</h3><table><thead><tr><th>Canal</th><th class="num">Contactos</th><th class="num">Cargaron</th><th class="num">CPA</th></tr></thead><tbody id="mch"></tbody></table></div>
       </div>
-      <div class="card"><h3>Por origen (anuncio / campaña)</h3><table><thead><tr><th>Origen</th><th class="num">Contactos</th><th class="num">Registro</th><th class="num">1ª carga</th></tr></thead><tbody id="msrc"></tbody></table></div>
+      <div class="card"><h3>Por origen (anuncio / campaña)</h3><table><thead><tr><th>Origen</th><th class="num">Contactos</th><th class="num">Cargaron</th><th class="num">CPA</th></tr></thead><tbody id="msrc"></tbody></table></div>
     </div>
   </section>
 
@@ -368,7 +379,7 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const STAGES = {nuevo:'Nuevo',link_enviado:'Link enviado',registrado:'Registrado',validado:'Validado',primera_carga:'Primera carga',activo:'Activo',perdido:'Perdido'};
+const STAGES = {nuevo:'Nuevo',datos_carga:'Datos de carga enviados',cargo:'Cargó',link_enviado:'Link enviado',registrado:'Registrado',cpa_confirmado:'CPA confirmado',activo:'Activo',perdido:'Perdido'};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const linkify = s => esc(s).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -456,6 +467,7 @@ function matchesFilter(c){
   if (filter==='unread' && !c.unread) return false;
   if (filter==='human' && !c.needs_human) return false;
   if (filter==='bot_off' && c.bot_enabled) return false;
+  if (filter==='verify' && !(c.dni && !c.cpa_confirmed_at && c.stage!=='perdido')) return false;
   if (q && ![c.name,c.phone,c.notes,c.tags].some(v=>String(v||'').toLowerCase().includes(q))) return false;
   return true;
 }
@@ -467,7 +479,7 @@ function renderConvs(){
       <div class="mid">
         <div class="top"><span class="name">${esc(c.name||c.phone)}</span><span class="time">${ago(c.last_message_at||c.created_at)}</span></div>
         <div class="prev">${esc(c.last_message_preview||'')}</div>
-        <div class="tags"><span class="pill st-${c.stage}">${STAGES[c.stage]||c.stage}</span>${c.needs_human?'<span class="pill human">Necesita humano</span>':''}${!c.bot_enabled&&!c.needs_human?'<span class="pill off">Bot pausado</span>':''}<span style="flex:1"></span>${c.unread?`<span class="unread">${c.unread}</span>`:''}</div>
+        <div class="tags"><span class="pill st-${c.stage}">${STAGES[c.stage]||c.stage}</span>${c.needs_human?'<span class="pill human">Necesita humano</span>':''}${!c.bot_enabled&&!c.needs_human?'<span class="pill off">Bot pausado</span>':''}${c.dni?(c.cpa_confirmed_at?'<span class="pill ok">CPA ✓</span>':'<span class="pill money">💰 Cargó</span>'):''}<span style="flex:1"></span>${c.unread?`<span class="unread">${c.unread}</span>`:''}</div>
       </div>
     </div>`).join('') : '<div class="empty" style="height:200px">Sin conversaciones</div>';
 }
@@ -557,6 +569,15 @@ function renderSide(){
     <div class="field"><label>Teléfono</label><input id="f_phone" value="${esc(c.phone)}"></div>
     <div class="field"><label>Provincia</label><select id="f_province"><option value="">—</option>${Object.entries(provs).map(([k,p])=>`<option value="${k}" ${c.province===k?'selected':''}>${esc(p.label)}</option>`).join('')}</select></div>
     <div class="field"><label>Etapa</label><select id="f_stage">${Object.entries(STAGES).map(([k,v])=>`<option value="${k}" ${c.stage===k?'selected':''}>${v}</option>`).join('')}</select></div>
+    <h4>Carga</h4>
+    <div class="grid2" style="gap:8px">
+      <div class="field"><label>DNI</label><input id="f_dni" value="${esc(c.dni)}" inputmode="numeric"></div>
+      <div class="field"><label>Monto</label><input id="f_deposit_amount" value="${esc(c.deposit_amount)}" inputmode="numeric"></div>
+    </div>
+    <div class="field"><label>Titular de la cuenta</label><input id="f_titular" value="${esc(c.titular)}"></div>
+    ${c.deposit_at?`<div style="font-size:12px;color:var(--muted);margin:-4px 0 8px">Reportada: ${toDate(c.deposit_at).toLocaleString('es-AR')}</div>`:''}
+    ${c.dni && !c.cpa_confirmed_at ? '<button class="btn primary sm" id="cpaBtn" style="margin-bottom:12px">✅ Confirmar CPA (verificado con el afiliador)</button>' : ''}
+    ${c.cpa_confirmed_at ? `<div class="pill ok" style="display:inline-block;margin-bottom:12px">CPA confirmado ${toDate(c.cpa_confirmed_at).toLocaleDateString('es-AR')}</div>` : ''}
     <div class="field"><label>Etiquetas (separadas por coma)</label><input id="f_tags" value="${esc(c.tags)}" placeholder="vip, slots, fútbol"></div>
     <div class="field"><label>Notas internas</label><textarea id="f_notes">${esc(c.notes)}</textarea></div>
     <button class="btn primary sm" id="saveSide">Guardar ficha</button>
@@ -568,20 +589,23 @@ function renderSide(){
       <a class="btn sm" href="https://wa.me/${String(c.phone).replace(/\D/g,'')}" target="_blank" rel="noopener">Abrir en WhatsApp</a>
       <button class="btn sm danger" id="delBtn">Borrar</button>
     </div>`;
-  $('saveSide').onclick = async () => { await patch(current, { name:$('f_name').value, phone:$('f_phone').value, province:$('f_province').value||null, stage:$('f_stage').value, tags:$('f_tags').value, notes:$('f_notes').value }); toast('Ficha guardada'); };
+  $('saveSide').onclick = async () => { await patch(current, { name:$('f_name').value, phone:$('f_phone').value, province:$('f_province').value||null, stage:$('f_stage').value, tags:$('f_tags').value, notes:$('f_notes').value, dni:$('f_dni').value, titular:$('f_titular').value, deposit_amount:$('f_deposit_amount').value }); toast('Ficha guardada'); };
   $('f_stage').onchange = () => patch(current, { stage: $('f_stage').value });
   if ($('resolveBtn')) $('resolveBtn').onclick = () => patch(current, { needs_human: 0 });
+  if ($('cpaBtn')) $('cpaBtn').onclick = async () => { await patch(current, { stage: 'cpa_confirmado' }); toast('CPA confirmado 💵'); };
   $('delBtn').onclick = async () => { if (!confirm('¿Borrar este contacto y toda su conversación?')) return; await api(`/contacts/${current}`, {method:'DELETE'}); };
 }
 
 // ---------- contactos ----------
 async function loadContactsTable(){
   const rows = await api('/contacts?'+new URLSearchParams({ q:$('cq').value, stage:$('cstage').value, limit:5000 }));
-  $('ctable').innerHTML = rows.map(c=>`<tr data-id="${c.id}" style="cursor:pointer"><td>${esc(c.name)||'—'}</td><td>${esc(c.phone)}</td><td>${esc(c.province)||'—'}</td><td><span class="pill st-${c.stage}">${STAGES[c.stage]}</span></td><td>${c.channel==='whatsapp'?'WhatsApp':'Web'}</td><td>${esc(c.source)}</td><td>${ago(c.last_message_at)}</td></tr>`).join('') || '<tr><td colspan="7" style="color:var(--muted)">Sin contactos</td></tr>';
+  $('ctable').innerHTML = rows.map(c=>`<tr data-id="${c.id}" style="cursor:pointer"><td>${esc(c.name)||'—'}</td><td>${esc(c.phone)}</td><td>${esc(c.dni)||'—'}</td><td>${esc(c.province)||'—'}</td><td><span class="pill st-${c.stage}">${STAGES[c.stage]}</span></td><td>${c.channel==='whatsapp'?'WhatsApp':'Web'}</td><td>${esc(c.source)}</td><td>${ago(c.last_message_at)}</td></tr>`).join('') || '<tr><td colspan="8" style="color:var(--muted)">Sin contactos</td></tr>';
 }
 $('ctable').onclick = e => { const tr=e.target.closest('tr[data-id]'); if(!tr) return; go('inbox'); loadConvs().then(()=>openChat(Number(tr.dataset.id))); };
 let cqT; $('cq').oninput = () => { clearTimeout(cqT); cqT=setTimeout(loadContactsTable,250); };
 $('cstage').onchange = loadContactsTable;
+(() => { const t = new Date(), m = new Date(t.getFullYear(), t.getMonth(), 1); const f = d => d.toISOString().slice(0,10); $('cDesde').value = f(m); $('cHasta').value = f(t); })();
+$('expCargas').onclick = () => { location.href = `/api/admin/cargas.csv?desde=${$('cDesde').value}&hasta=${$('cHasta').value}`; };
 $('importFile').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   try { const r = await api('/import', { method:'POST', body: await f.text(), raw:true, headers:{'Content-Type':'text/csv'} }); toast(`Importados ${r.added} · repetidos ${r.dup} · inválidos ${r.invalid}`); loadContactsTable(); }
@@ -611,7 +635,7 @@ async function loadSettings(){
   const vers = await api('/prompt_versions');
   $('versions').innerHTML = '<option value="">Historial de versiones…</option>' + vers.map(v=>`<option value="${v.id}">v${v.id} · ${toDate(v.created_at).toLocaleDateString('es-AR')} ${esc(v.note||'')}</option>`).join('');
 }
-function addFuRow(f={stage:'link_enviado',after_hours:2,text:''}){
+function addFuRow(f={stage:'datos_carga',after_hours:1,text:''}){
   const row = document.createElement('div'); row.className='fu';
   row.innerHTML = `<select>${Object.entries(STAGES).map(([k,v])=>`<option value="${k}" ${f.stage===k?'selected':''}>${v}</option>`).join('')}</select><input type="number" min="0.5" step="0.5" value="${f.after_hours}" title="Horas sin respuesta"><textarea placeholder="Mensaje">${esc(f.text)}</textarea><button class="btn sm danger" title="Quitar">✕</button>`;
   row.querySelector('button').onclick = () => row.remove();
@@ -701,9 +725,9 @@ async function loadMetrics(){
   const f = Object.fromEntries(m.funnel.map(x=>[x.stage,x.count]));
   $('mstats').innerHTML = `
     <div class="stat"><div class="l">Contactos nuevos</div><div class="v">${m.total}</div><div class="s">${m.perdidos} perdidos</div></div>
-    <div class="stat"><div class="l">Registrados</div><div class="v">${f.registrado}</div><div class="s">${pct(f.registrado,m.total)} de los contactos</div></div>
-    <div class="stat"><div class="l">Primeras cargas</div><div class="v">${m.ftd}</div><div class="s">${pct(m.ftd,m.total)} de los contactos · ${pct(m.ftd,f.registrado)} de registrados</div></div>
-    <div class="stat"><div class="l">Ingreso CPA estimado</div><div class="v">USD ${m.cpa_income_usd}</div><div class="s">USD 10 por primera carga (sin el 16% de revenue share)</div></div>`;
+    <div class="stat"><div class="l">Cargaron (con DNI)</div><div class="v">${m.cargas}</div><div class="s">${pct(m.cargas,m.total)} de los contactos</div></div>
+    <div class="stat"><div class="l">CPA (cargó + registrado)</div><div class="v">${m.ftd}</div><div class="s">${pct(m.ftd,m.total)} de los contactos · USD ${m.cpa_potential_usd} potencial</div></div>
+    <div class="stat"><div class="l">CPA confirmados</div><div class="v">USD ${m.cpa_income_usd}</div><div class="s">${m.cpa_confirmados} confirmados · ${m.por_verificar} por verificar</div></div>`;
   const max = Math.max(1, m.funnel[0].count);
   $('mfunnel').innerHTML = m.funnel.map((x,i)=>`<div class="fr" title="${x.label}: ${x.count} contactos"><span class="fl">${x.label}</span><div class="track"><div class="bar" style="width:${x.count/max*100}%"></div></div><span class="fv">${x.count} <small>${i?pct(x.count,m.funnel[i-1].count)+' del paso anterior':''}</small></span></div>`).join('');
   const rows = (arr, lab) => arr.map(r=>`<tr><td>${lab(r.key)}</td><td class="num">${r.total}</td><td class="num">${r.registrados} <small style="color:var(--muted)">${pct(r.registrados,r.total)}</small></td><td class="num"><b>${r.ftd}</b> <small style="color:var(--muted)">${pct(r.ftd,r.total)}</small></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted)">Sin datos</td></tr>';
