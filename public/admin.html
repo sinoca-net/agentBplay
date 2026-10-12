@@ -201,6 +201,7 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
     <button data-view="contacts" data-tip="Contactos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
     <button data-view="bot" data-tip="Bot"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 4v4M8 14h.01M16 14h.01"/></svg></button>
     <button data-view="metrics" data-tip="Métricas"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></button>
+    <button data-view="lines" data-tip="Líneas WhatsApp"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg></button>
     <button data-view="setup" data-tip="Conexión"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button>
     <div class="spacer"></div>
     <button id="logout" data-tip="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
@@ -219,7 +220,7 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
           <button class="chip" data-f="verify">💰 Por verificar</button>
         </div>
         <div style="display:flex;gap:6px"><select class="search" id="stageFilter"><option value="">Etapa: todas</option></select>
-        <select class="search" id="channelFilter" style="max-width:140px"><option value="">Canal: todos</option><option value="web">Chat web</option><option value="whatsapp">WhatsApp</option></select></div>
+        <select class="search" id="channelFilter" style="max-width:140px"><option value="">Canal: todos</option><option value="web">Chat web</option><option value="whatsapp">WhatsApp API</option><option value="linea">Líneas WhatsApp</option></select></div>
       </div>
       <div class="convs" id="convs"></div>
     </div>
@@ -238,6 +239,7 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
         <input class="search" id="cq" placeholder="Buscar…" style="max-width:260px">
         <select class="search" id="cstage" style="max-width:200px"><option value="">Todas las etapas</option></select>
         <span style="flex:1"></span>
+        <button class="btn primary" id="recoverBtn">📲 Recuperar jugadores</button>
         <button class="btn" id="addContact">+ Agregar</button>
         <label class="btn" style="margin:0">Importar CSV<input type="file" id="importFile" accept=".csv,text/csv" hidden></label>
         <a class="btn" href="/api/admin/export.csv">Exportar CSV</a>
@@ -359,6 +361,28 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
   </section>
 
   <!-- CONEXIÓN -->
+  <section class="view" id="v-lines">
+    <div class="page">
+      <h2>Líneas de WhatsApp</h2>
+      <p class="sub">Conectá números por QR, como WhatsApp Web. Lo que te escriben cae en la bandeja y el bot responde. Para recontactar jugadores, escribís uno a uno desde la ficha o desde <b>Contactos → Recuperar jugadores</b>.</p>
+      <div class="card" style="background:#fff8e6;border-color:#f3dfb0;font-size:13px;line-height:1.5">
+        <b>Para cuidar las líneas:</b> usá números dedicados (no tu personal), escribí sólo a jugadores que ya te conocen, respetá el tope diario y nunca mandes el mismo mensaje masivo. Si alguien responde "BAJA", queda marcado y no se le puede volver a escribir.
+      </div>
+      <div class="toolbar">
+        <input class="search" id="newLineName" placeholder="Nombre de la línea (ej: Recupero 1)" style="max-width:280px">
+        <input class="search" id="newLineLimit" type="number" min="1" max="50" value="30" style="max-width:110px" title="Primeros contactos por día">
+        <button class="btn primary" id="addLine">+ Conectar línea</button>
+      </div>
+      <div id="linesList" class="grid2"></div>
+      <div class="card" style="margin-top:8px">
+        <h3>Mensaje de recupero</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 10px"><code>{nombre}</code> se reemplaza por el nombre y <code>{link}</code> por tu landing con <code>?src=recupero</code>. Lo podés editar antes de cada envío.</p>
+        <textarea class="script" id="recTpl" style="min-height:120px;font-family:inherit"></textarea>
+        <div class="row-btns" style="margin-top:8px"><button class="btn primary sm" id="saveTpl">Guardar mensaje</button></div>
+      </div>
+    </div>
+  </section>
+
   <section class="view" id="v-setup">
     <div class="page">
       <h2>Conexión</h2>
@@ -368,6 +392,12 @@ code,.code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:
   </section>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal" id="recModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:8px"><h3 style="flex:1">📲 Recuperar jugadores</h3><span class="pill" id="recLeft"></span></div>
+  <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Uno a uno: revisá el mensaje, enviá o saltá. Sólo aparecen contactos importados que todavía no contactaste.</div>
+  <div id="recBody"></div>
+  <div class="row-btns" style="margin-top:12px;justify-content:flex-end"><button class="btn" id="recClose">Cerrar</button><button class="btn" id="recSkip">Saltar</button><button class="btn primary" id="recSend">Enviar y siguiente</button></div>
+</div></div>
 <div class="modal" id="fixModal"><div class="box">
   <h3>¿Cómo lo dirías vos?</h3>
   <div style="font-size:13px;color:var(--muted)">El bot respondió:</div>
@@ -401,11 +431,11 @@ const tickSvg = st => {
   const two = st==='delivered'||st==='read';
   return `<svg class="tick ${st==='read'?'read':''}" viewBox="0 0 18 11"><path fill="currentColor" d="M11.07.65l-6.6 7.6-2.9-2.6L.5 6.8l4.05 3.6 7.6-8.75z"/>${two?'<path fill="currentColor" d="M16.5.65l-6.6 7.6-1.1-1-1.05 1.2 2.2 1.95 7.6-8.75z"/>':''}</svg>`;
 };
-const chIcon = ch => ch==='whatsapp'
+const chIcon = ch => (ch==='whatsapp' || ch==='linea')
   ? '<span class="ch whatsapp" title="WhatsApp"><svg width="9" height="9" viewBox="0 0 24 24"><path fill="#fff" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg></span>'
   : '<span class="ch web" title="Chat web"><svg width="9" height="9" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="3"/></svg></span>';
 
-for (const [k,v] of Object.entries(STAGES)) { $('stageFilter').insertAdjacentHTML('beforeend',`<option value="${k}">${v}</option>`); $('cstage').insertAdjacentHTML('beforeend',`<option value="${k}">${v}</option>`); }
+for (const [k,v] of Object.entries(STAGES)) { const lab = k==='cargo' ? 'Cargó (todos los que transfirieron)' : v; $('stageFilter').insertAdjacentHTML('beforeend',`<option value="${k}">${lab}</option>`); $('cstage').insertAdjacentHTML('beforeend',`<option value="${k}">${lab}</option>`); }
 
 // ---------- login ----------
 function showLogin(){ $('login').style.display='grid'; }
@@ -426,6 +456,7 @@ function go(v){
   if(v==='bot') loadSettings();
   if(v==='metrics') loadMetrics();
   if(v==='setup') loadSetup();
+  if(v==='lines') loadLines();
 }
 
 // ---------- estado ----------
@@ -433,12 +464,14 @@ let contacts = new Map(), current = null, filter = '', socket = null, status = {
 async function boot(){
   try { status = await api('/status'); } catch { return; }
   $('login').style.display='none';
-  api('/settings').then(x => settingsCache = x).catch(()=>{});
+  api('/settings').then(x => { settingsCache = x; recTpl = x.recovery_template || ''; }).catch(()=>{});
+  api('/lines').then(ls => ls.forEach(l=>linesCache.set(l.id,l))).catch(()=>{});
   if (status.default_password) toast('⚠️ Estás usando la contraseña por defecto. Configurá ADMIN_PASSWORD.');
   await loadConvs();
   socket = io({ auth: { role: 'admin' } });
   socket.on('message', m => { if (current && m.contact_id === current) { appendMsg(m); scrollMsgs(); if (m.sender==='client') socket.emit('agent:open', current); } });
   socket.on('contact', c => { contacts.set(c.id, c); renderConvs(); if (current === c.id) { renderSide(); renderChatHeader(); } updateBadge(); });
+  socket.on('line', l => { linesCache.set(l.id, l); if ($('v-lines').classList.contains('on')) renderLines(); });
   socket.on('contact_deleted', id => { contacts.delete(id); if (current===id) closeChat(); renderConvs(); });
   socket.on('status', s => { const el = document.querySelector(`[data-mid="${s.id}"] .tk`); if (el) el.innerHTML = tickSvg(s.status); });
   socket.on('seen', ({contactId}) => { if (contactId===current) document.querySelectorAll('.mrow.out .tk').forEach(t=>t.innerHTML=tickSvg('read')); });
@@ -450,7 +483,7 @@ let settingsCache = null;
 const botName = () => settingsCache?.agent_name || 'El bot';
 
 async function loadConvs(){
-  const params = new URLSearchParams({ q: $('q').value, stage: $('stageFilter').value, channel: $('channelFilter').value, filter });
+  const params = new URLSearchParams({ q: $('q').value, stage: $('stageFilter').value, channel: $('channelFilter').value, filter, inbox: 1 });
   const rows = await api('/contacts?'+params);
   contacts = new Map(rows.map(r=>[r.id,r]));
   renderConvs(); updateBadge();
@@ -462,12 +495,13 @@ $('filters').onclick = e => { const b=e.target.closest('.chip'); if(!b) return; 
 
 function matchesFilter(c){
   const q = $('q').value.toLowerCase(), st = $('stageFilter').value;
-  if (st && c.stage!==st) return false;
+  if (st === 'cargo' ? !c.dni : (st && c.stage!==st)) return false;
   if ($('channelFilter').value && c.channel!==$('channelFilter').value) return false;
   if (filter==='unread' && !c.unread) return false;
   if (filter==='human' && !c.needs_human) return false;
   if (filter==='bot_off' && c.bot_enabled) return false;
   if (filter==='verify' && !(c.dni && !c.cpa_confirmed_at && c.stage!=='perdido')) return false;
+  if (!c.last_message_at) return false;
   if (q && ![c.name,c.phone,c.notes,c.tags].some(v=>String(v||'').toLowerCase().includes(q))) return false;
   return true;
 }
@@ -479,7 +513,7 @@ function renderConvs(){
       <div class="mid">
         <div class="top"><span class="name">${esc(c.name||c.phone)}</span><span class="time">${ago(c.last_message_at||c.created_at)}</span></div>
         <div class="prev">${esc(c.last_message_preview||'')}</div>
-        <div class="tags"><span class="pill st-${c.stage}">${STAGES[c.stage]||c.stage}</span>${c.needs_human?'<span class="pill human">Necesita humano</span>':''}${!c.bot_enabled&&!c.needs_human?'<span class="pill off">Bot pausado</span>':''}${c.dni?(c.cpa_confirmed_at?'<span class="pill ok">CPA ✓</span>':'<span class="pill money">💰 Cargó</span>'):''}<span style="flex:1"></span>${c.unread?`<span class="unread">${c.unread}</span>`:''}</div>
+        <div class="tags"><span class="pill st-${c.stage}">${STAGES[c.stage]||c.stage}</span>${c.needs_human?'<span class="pill human">Necesita humano</span>':''}${!c.bot_enabled&&!c.needs_human?'<span class="pill off">Bot pausado</span>':''}${c.do_not_contact?'<span class="pill human">🚫 No contactar</span>':''}${c.dni?(c.cpa_confirmed_at?'<span class="pill ok">CPA ✓</span>':'<span class="pill money">💰 Cargó</span>'):''}<span style="flex:1"></span>${c.unread?`<span class="unread">${c.unread}</span>`:''}</div>
       </div>
     </div>`).join('') : '<div class="empty" style="height:200px">Sin conversaciones</div>';
 }
@@ -489,6 +523,7 @@ function updateBadge(){ const n=[...contacts.values()].filter(c=>c.needs_human).
 // ---------- conversación ----------
 let lastDay = null;
 async function openChat(id){
+  if (!contacts.has(id)) { try { contacts.set(id, await api('/contacts/'+id)); } catch { return; } }
   current = id; lastDay = null;
   $('v-inbox').classList.add('open');
   const c = contacts.get(id);
@@ -515,7 +550,7 @@ function renderChatHeader(){
   $('chatH').innerHTML = `
     <button class="back" id="backBtn">‹</button>
     <div class="avatar">${esc(initials(c.name))}${chIcon(c.channel)}</div>
-    <div class="info"><b>${esc(c.name||'Sin nombre')}</b><span>${esc(c.phone)} · ${c.channel==='whatsapp'?'WhatsApp':'Chat web'} · ${STAGES[c.stage]}</span></div>
+    <div class="info"><b>${esc(c.name||'Sin nombre')}</b><span>${esc(c.phone)} · ${c.channel==='whatsapp'?'WhatsApp API':c.channel==='linea'?'📱 '+esc(linesCache.get(c.line_id)?.name||'Línea'):'Chat web'} · ${STAGES[c.stage]}</span></div>
     <div class="toggle">Bot ${c.bot_enabled?'activo':'pausado'} <button class="sw ${c.bot_enabled?'on':''}" id="botSw" aria-label="Activar o pausar bot"></button></div>
     <button class="btn sm" id="sideBtn" title="Ficha">Ficha</button>`;
   $('botSw').onclick = () => patch(current, { bot_enabled: c.bot_enabled ? 0 : 1 });
@@ -581,8 +616,13 @@ function renderSide(){
     <div class="field"><label>Etiquetas (separadas por coma)</label><input id="f_tags" value="${esc(c.tags)}" placeholder="vip, slots, fútbol"></div>
     <div class="field"><label>Notas internas</label><textarea id="f_notes">${esc(c.notes)}</textarea></div>
     <button class="btn primary sm" id="saveSide">Guardar ficha</button>
+    <h4>Escribir por línea</h4>
+    ${c.do_not_contact ? '<div class="pill human" style="display:inline-block">🚫 Pidió no recibir mensajes</div>' : `
+      <div class="field"><select id="lnSel">${[...linesCache.values()].map(l=>`<option value="${l.id}" ${c.line_id===l.id?'selected':''} ${l.status!=='connected'?'disabled':''}>${esc(l.name)} ${l.status==='connected'?`(${l.sent_count}/${l.daily_limit} hoy)`:'— desconectada'}</option>`).join('') || '<option value="">No hay líneas conectadas</option>'}</select></div>
+      <div class="field"><textarea id="lnMsg" style="min-height:90px">${esc(fillTpl(c))}</textarea></div>
+      <button class="btn sm" id="lnSend">📲 Enviar por WhatsApp</button>`}
     <h4>Datos</h4>
-    <div class="kv"><span>Canal</span><b>${c.channel==='whatsapp'?'WhatsApp':'Chat web'}</b><span>Origen</span><b>${esc(c.source)||'—'}</b><span>Alta</span><b>${toDate(c.created_at).toLocaleString('es-AR')}</b><span>Acepta novedades</span><b>${c.marketing_optin?'Sí':'No'}</b><span>Guion</span><b>${c.prompt_version?'v'+c.prompt_version:'—'}</b></div>
+    <div class="kv"><span>Canal</span><b>${c.channel==='whatsapp'?'WhatsApp API':c.channel==='linea'?'Línea: '+esc(linesCache.get(c.line_id)?.name||''):'Chat web'}</b><span>Origen</span><b>${esc(c.source)||'—'}</b><span>Alta</span><b>${toDate(c.created_at).toLocaleString('es-AR')}</b><span>Acepta novedades</span><b>${c.marketing_optin?'Sí':'No'}</b><span>Guion</span><b>${c.prompt_version?'v'+c.prompt_version:'—'}</b></div>
     <h4>Acciones</h4>
     <div class="row-btns">
       ${c.needs_human?'<button class="btn sm" id="resolveBtn">Marcar atendido</button>':''}
@@ -592,6 +632,14 @@ function renderSide(){
   $('saveSide').onclick = async () => { await patch(current, { name:$('f_name').value, phone:$('f_phone').value, province:$('f_province').value||null, stage:$('f_stage').value, tags:$('f_tags').value, notes:$('f_notes').value, dni:$('f_dni').value, titular:$('f_titular').value, deposit_amount:$('f_deposit_amount').value }); toast('Ficha guardada'); };
   $('f_stage').onchange = () => patch(current, { stage: $('f_stage').value });
   if ($('resolveBtn')) $('resolveBtn').onclick = () => patch(current, { needs_human: 0 });
+  if ($('lnSend')) $('lnSend').onclick = async () => {
+    const line_id = Number($('lnSel').value), body = $('lnMsg').value.trim();
+    if (!line_id || !body) return toast('Elegí una línea conectada y escribí el mensaje');
+    $('lnSend').disabled = true;
+    try { await api(`/contacts/${current}/line-message`, { method:'POST', body: JSON.stringify({ line_id, body }) }); toast('Enviado'); }
+    catch(e){ toast(e.message); }
+    if ($('lnSend')) $('lnSend').disabled = false;
+  };
   if ($('cpaBtn')) $('cpaBtn').onclick = async () => { await patch(current, { stage: 'cpa_confirmado' }); toast('CPA confirmado 💵'); };
   $('delBtn').onclick = async () => { if (!confirm('¿Borrar este contacto y toda su conversación?')) return; await api(`/contacts/${current}`, {method:'DELETE'}); };
 }
@@ -672,6 +720,75 @@ $('analyze').onclick = async () => {
     if ($('useProposed')) $('useProposed').onclick = () => { $('s_script').value = $('proposed').value; $('versionNote').value = 'Mejora sugerida por Laboratorio'; $('s_script').scrollIntoView({behavior:'smooth'}); toast('Revisalo y apretá Guardar'); };
   } catch(e){ out.innerHTML = `<p style="color:var(--crit)">${esc(e.message)}</p>`; }
   $('analyze').disabled = false;
+};
+
+// ---------- líneas ----------
+const linesCache = new Map();
+const LINE_ST = { connected:['Conectada','ok'], qr:['Escaneá el QR','money'], connecting:['Conectando…','money'], reconnecting:['Reconectando…','money'], logged_out:['Sesión cerrada','human'], banned:['Bloqueada por WhatsApp','human'], stopped:['Detenida','off'] };
+let recTpl = '';
+function fillTpl(c){ return (recTpl||'').replace(/\{nombre\}/g, (c.name||'').split(' ')[0] || '').replace(/\{link\}/g, location.origin + '/?src=recupero').replace(/\s+!/g,'!'); }
+async function loadLines(){
+  const ls = await api('/lines'); linesCache.clear(); ls.forEach(l=>linesCache.set(l.id,l)); renderLines();
+  const s = await api('/settings'); recTpl = s.recovery_template || ''; $('recTpl').value = recTpl;
+}
+function renderLines(){
+  const ls=[...linesCache.values()];
+  $('linesList').innerHTML = ls.length ? ls.map(l => { const [lab,cls]=LINE_ST[l.status]||[l.status,'']; return `<div class="card" data-line="${l.id}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="flex:1">${esc(l.name)}</b><span class="pill ${cls}">${lab}</span></div>
+    <div style="font-size:13px;color:var(--ink-2)">${l.phone?'+'+esc(l.phone):'Sin número todavía'} · Hoy: <b>${l.sent_count}/${l.daily_limit}</b> primeros contactos</div>
+    ${l.qr?`<div style="text-align:center;margin:12px 0"><img src="${l.qr}" alt="QR" style="width:240px;height:240px"><div style="font-size:12.5px;color:var(--muted)">WhatsApp en el celu → ⋮ → Dispositivos vinculados → Vincular un dispositivo</div></div>`:''}
+    <div class="row-btns" style="margin-top:10px">
+      <label style="font-size:12.5px;display:flex;align-items:center;gap:6px">Tope diario <input type="number" min="1" max="50" value="${l.daily_limit}" data-act="limit" style="width:64px;padding:5px;border:1px solid var(--line);border-radius:6px"></label>
+      <span style="flex:1"></span>
+      ${l.status!=='connected'?'<button class="btn sm" data-act="restart">Reconectar / nuevo QR</button>':''}
+      <button class="btn sm danger" data-act="del">Desvincular</button>
+    </div></div>`; }).join('') : '<p style="color:var(--muted)">Todavía no conectaste ninguna línea.</p>';
+}
+$('linesList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.dataset.act==='limit') return;
+  const id = b.closest('[data-line]').dataset.line;
+  if (b.dataset.act==='del') { if (!confirm('¿Desvincular esta línea? Las conversaciones quedan guardadas.')) return; await api('/lines/'+id,{method:'DELETE'}); linesCache.delete(Number(id)); renderLines(); }
+  if (b.dataset.act==='restart') { await api(`/lines/${id}/restart`,{method:'POST'}); toast('Generando QR…'); }
+});
+$('linesList').addEventListener('change', async e => {
+  if (e.target.dataset.act!=='limit') return;
+  const id = e.target.closest('[data-line]').dataset.line;
+  try { const l = await api('/lines/'+id,{method:'PATCH', body: JSON.stringify({ daily_limit: Number(e.target.value) })}); linesCache.set(l.id,l); renderLines(); toast('Tope actualizado'); } catch(err){ toast(err.message); }
+});
+$('addLine').onclick = async () => {
+  try { const l = await api('/lines',{method:'POST', body: JSON.stringify({ name: $('newLineName').value, daily_limit: Number($('newLineLimit').value) })}); linesCache.set(l.id,l); renderLines(); $('newLineName').value=''; toast('Esperá el QR y escanealo'); }
+  catch(e){ toast(e.message); }
+};
+$('saveTpl').onclick = async () => { await api('/settings',{method:'PUT', body: JSON.stringify({ recovery_template: $('recTpl').value })}); recTpl = $('recTpl').value; toast('Mensaje guardado'); };
+
+// ---------- recuperar jugadores (uno a uno) ----------
+let recCurrent = null, recAfter = 0;
+async function recNext(){
+  const r = await api('/recovery/next?after='+recAfter);
+  recCurrent = r.contact; $('recLeft').textContent = r.left + ' por contactar';
+  const conn = [...linesCache.values()].filter(l=>l.status==='connected');
+  if (!conn.length) { $('recBody').innerHTML = '<p>No tenés líneas conectadas. Conectá una en <b>Líneas</b>.</p>'; $('recSend').disabled = true; return; }
+  if (!recCurrent) { $('recBody').innerHTML = '<p>No quedan contactos importados sin contactar. Importá tu lista desde <b>Contactos → Importar CSV</b>.</p>'; $('recSend').disabled = true; return; }
+  $('recSend').disabled = false;
+  $('recBody').innerHTML = `<div style="font-weight:600">${esc(recCurrent.name||'Sin nombre')} · ${esc(recCurrent.phone)}</div>
+    <div class="field" style="margin-top:10px"><label>Línea</label><select id="recLine">${conn.map(l=>`<option value="${l.id}" ${l.sent_count>=l.daily_limit?'disabled':''}>${esc(l.name)} (${l.sent_count}/${l.daily_limit} hoy${l.sent_count>=l.daily_limit?' — tope alcanzado':''})</option>`).join('')}</select></div>
+    <div class="field"><label>Mensaje (editalo si querés)</label><textarea id="recMsg" style="min-height:120px">${esc(fillTpl(recCurrent))}</textarea></div>`;
+}
+$('recoverBtn').onclick = async () => {
+  await loadLines(); recAfter = 0; $('recModal').classList.add('on'); recNext();
+};
+$('recClose').onclick = () => $('recModal').classList.remove('on');
+$('recSkip').onclick = () => { if (recCurrent) recAfter = recCurrent.id; recNext(); };
+$('recSend').onclick = async () => {
+  if (!recCurrent) return;
+  $('recSend').disabled = true;
+  try {
+    await api(`/contacts/${recCurrent.id}/line-message`, { method:'POST', body: JSON.stringify({ line_id: Number($('recLine').value), body: $('recMsg').value.trim() }) });
+    toast('Enviado ✓'); await loadLines(); recAfter = recCurrent.id;
+    // pausa corta entre envíos para que no sea en ráfaga
+    $('recBody').innerHTML = '<p style="color:var(--muted)">Siguiente en unos segundos…</p>';
+    setTimeout(recNext, 8000 + Math.random()*7000);
+  } catch(e){ toast(e.message); $('recSend').disabled = false; if (/no tiene WhatsApp/.test(e.message)) { recAfter = recCurrent.id; setTimeout(recNext, 1200); } }
 };
 
 // ---------- entrenamiento ----------

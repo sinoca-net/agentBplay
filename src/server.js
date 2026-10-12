@@ -9,6 +9,7 @@ const webpush = require('web-push');
 const store = require('./db');
 const agent = require('./agent');
 const wa = require('./whatsapp');
+const lines = require('./lines');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -53,6 +54,14 @@ function sendOutbound(contactId, sender, body) {
   io.to('admins').emit('contact', store.getContact(contactId));
   if (sender === 'system') return msg;
 
+  if (channel === 'linea') {
+    const jid = contact.wa_jid || `${String(contact.phone).replace(/\D/g, '')}@s.whatsapp.net`;
+    if (!contact.line_id) { failMessage(msg, 'Este contacto no tiene una línea asignada.'); return msg; }
+    lines.send(contact.line_id, jid, body)
+      .then(id => { if (id) store.db.prepare('UPDATE messages SET wa_id=? WHERE id=?').run(id, msg.id); })
+      .catch(err => failMessage(msg, err.message));
+    return msg;
+  }
   if (channel === 'whatsapp') {
     const hoursSince = contact.last_client_at ? (Date.now() - Date.parse(contact.last_client_at + 'Z')) / 36e5 : 999;
     if (hoursSince > 24) {
@@ -91,13 +100,80 @@ async function pushTo(contactId, body) {
   }
 }
 
-agent.init({ io, sendOutbound });
+// ---------- líneas de WhatsApp por QR ----------
+const lastKeys = new Map(); // contactId -> key del último mensaje recibido (para tildes azules)
+const lineJid = c => c.wa_jid || `${String(c.phone).replace(/\D/g, '')}@s.whatsapp.net`;
+agent.init({
+  io, sendOutbound,
+  hooks: {
+    onTyping: (contactId, on) => { const c = store.getContact(contactId); if (c?.channel === 'linea' && c.line_id) lines.typing(c.line_id, lineJid(c), on); },
+    onRead: contactId => { const c = store.getContact(contactId); const k = lastKeys.get(contactId); if (c?.channel === 'linea' && c.line_id && k) lines.read(c.line_id, k); },
+  },
+});
+
+function lineRow(id) { return store.db.prepare('SELECT * FROM lines WHERE id=?').get(id); }
+function linePublic(row) {
+  const st = lines.status(row.id);
+  const today = new Date().toISOString().slice(0, 10);
+  return { ...row, sent_count: row.sent_date === today ? row.sent_count : 0, status: st.status, qr: st.qr, phone: st.phone || row.phone };
+}
+lines.init({
+  onStatus: (id, st) => {
+    if (st.phone) store.db.prepare('UPDATE lines SET phone=? WHERE id=?').run(st.phone, id);
+    const row = lineRow(id);
+    if (row) io.to('admins').emit('line', linePublic(row));
+  },
+  onInbound: (lineId, m) => {
+    const phone = m.phone ? (store.normalizePhone(m.phone) || '+' + m.phone) : null;
+    let contact = (phone && store.getContactByPhone(phone)) || store.db.prepare('SELECT * FROM contacts WHERE wa_jid=?').get(m.jid);
+    if (!contact) {
+      const ln = lineRow(lineId);
+      const id = store.db.prepare('INSERT INTO contacts(name, phone, source, channel, line_id, wa_jid) VALUES(?,?,?,?,?,?)')
+        .run((m.name || '').slice(0, 60), phone || m.jid, `linea:${ln?.name || lineId}`, 'linea', lineId, m.jid).lastInsertRowid;
+      store.logEvent(id, 'created', { channel: 'linea', line: lineId });
+      contact = store.getContact(id);
+    } else {
+      store.updateContact(contact.id, { line_id: lineId, wa_jid: m.jid, ...(!contact.name && m.name ? { name: m.name.slice(0, 60) } : {}) });
+    }
+    lastKeys.set(contact.id, m.key);
+    receiveClientMessage(contact.id, m.text, { channel: 'linea', wa_id: m.key.id });
+  },
+  onFromPhone: (lineId, m) => {
+    // mensajes que escribiste desde el celular de la línea: los mostramos en la bandeja como asesor
+    const phone = m.phone ? store.normalizePhone(m.phone) : null;
+    const contact = (phone && store.getContactByPhone(phone)) || store.db.prepare('SELECT * FROM contacts WHERE wa_jid=?').get(m.jid);
+    if (!contact) return;
+    const msg = store.addMessage(contact.id, 'agent', m.text, { channel: 'linea', wa_id: m.id });
+    io.to('admins').emit('message', msg);
+    io.to('admins').emit('contact', store.getContact(contact.id));
+  },
+  onReceipt: (waId, status) => {
+    const row = store.db.prepare('SELECT id FROM messages WHERE wa_id=?').get(waId);
+    if (!row) return;
+    store.db.prepare('UPDATE messages SET status=? WHERE id=?').run(status, row.id);
+    io.to('admins').emit('status', { id: row.id, status });
+  },
+});
+// al arrancar, reconectar las líneas que ya tenían sesión
+setTimeout(() => {
+  for (const row of store.db.prepare('SELECT id FROM lines').all()) if (lines.hasSession(row.id)) lines.start(row.id).catch(e => console.error('[linea]', e.message));
+}, 1500);
 
 // ---------- recepción unificada de mensajes del cliente ----------
+const OPT_OUT = /^\s*(baja|stop|no me escribas|no me escriban|no molestar|no molesten|no me interesa)\b/i;
 function receiveClientMessage(contactId, body, extra = {}) {
   store.updateContact(contactId, { channel: extra.channel || 'web' });
   const msg = store.addMessage(contactId, 'client', body.slice(0, 4000), extra);
   io.to('admins').emit('message', msg);
+  if (OPT_OUT.test(body) && extra.channel !== 'web') {
+    // pidió no recibir más mensajes: se respeta siempre
+    store.updateContact(contactId, { do_not_contact: 1, bot_enabled: 0 });
+    store.logEvent(contactId, 'opt_out', {});
+    sendOutbound(contactId, 'system', '🚫 Pidió no recibir más mensajes: quedó marcado como "No contactar".');
+    sendOutbound(contactId, 'agent', 'Listo, no te vamos a escribir más. ¡Gracias y disculpá la molestia!');
+    io.to('admins').emit('contact', store.getContact(contactId));
+    return msg;
+  }
   io.to('admins').emit('contact', store.getContact(contactId));
   agent.onClientMessage(contactId);
   return msg;
@@ -224,11 +300,15 @@ admin.get('/contacts', (req, res) => {
   const { q, stage, filter } = req.query;
   const where = []; const params = {};
   if (q) { where.push('(name LIKE @q OR phone LIKE @q OR notes LIKE @q OR tags LIKE @q)'); params.q = `%${q}%`; }
-  if (stage) { where.push('stage=@stage'); params.stage = stage; }
+  // "Cargó" = todos los que reportaron transferencia (aunque después hayan avanzado a link enviado / registrado)
+  if (stage === 'cargo') where.push("dni IS NOT NULL AND dni!=''");
+  else if (stage) { where.push('stage=@stage'); params.stage = stage; }
   if (filter === 'human') where.push('needs_human=1');
   if (filter === 'unread') where.push('unread>0');
   if (filter === 'bot_off') where.push('bot_enabled=0');
+  if (filter === 'dnc') where.push('do_not_contact=1');
   if (filter === 'verify') where.push("dni IS NOT NULL AND dni!='' AND cpa_confirmed_at IS NULL AND stage!='perdido'");
+  if (req.query.inbox) where.push('last_message_at IS NOT NULL');
   if (req.query.channel) { where.push('channel=@channel'); params.channel = req.query.channel; }
   const rows = store.db.prepare(`SELECT * FROM contacts ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY COALESCE(last_message_at, created_at) DESC LIMIT ${Math.min(Number(req.query.limit) || 300, 5000)}`).all(params);
@@ -245,6 +325,10 @@ admin.post('/contacts', (req, res) => {
   res.json(store.getContact(id));
 });
 
+admin.get('/contacts/:id', (req, res) => {
+  const c = store.getContact(Number(req.params.id));
+  c ? res.json(c) : res.status(404).json({ error: 'No existe' });
+});
 admin.get('/contacts/:id/messages', (req, res) => {
   res.json(store.db.prepare('SELECT * FROM messages WHERE contact_id=? ORDER BY id').all(req.params.id));
 });
@@ -322,7 +406,7 @@ admin.get('/settings', (_req, res) => {
 });
 
 admin.put('/settings', (req, res) => {
-  const editable = ['brand_name', 'agent_name', 'agent_title', 'style_guide', 'landing', 'agent_status', 'welcome_message', 'model', 'bot_reply_delay_ms', 'provinces',
+  const editable = ['recovery_template', 'brand_name', 'agent_name', 'agent_title', 'style_guide', 'landing', 'agent_status', 'welcome_message', 'model', 'bot_reply_delay_ms', 'provinces',
     'deposit_instructions', 'script', 'followups', 'max_followups', 'wa_followup_template', 'wa_template_lang'];
   const prev = store.getSettings();
   for (const k of editable) if (req.body[k] !== undefined) store.setSetting(k, req.body[k]);
@@ -381,6 +465,74 @@ admin.get('/metrics', (req, res) => {
     by_version: group('prompt_version'), by_channel: group('channel'), by_source: group('source').slice(0, 15),
     daily, ftd_daily: ftdDaily,
   });
+});
+
+// ---------- Líneas ----------
+const MAX_DAILY = 50; // tope duro de primeros contactos por línea y por día (uno a uno, nada masivo)
+admin.get('/lines', (_req, res) => res.json(store.db.prepare('SELECT * FROM lines ORDER BY id').all().map(linePublic)));
+admin.post('/lines', async (req, res) => {
+  const name = String(req.body?.name || '').trim().slice(0, 40) || 'Línea';
+  const limit = Math.min(Math.max(Number(req.body?.daily_limit) || 30, 1), MAX_DAILY);
+  const id = store.db.prepare('INSERT INTO lines(name, daily_limit) VALUES(?,?)').run(name, limit).lastInsertRowid;
+  lines.start(Number(id)).catch(e => console.error('[linea]', e.message));
+  res.json(linePublic(lineRow(id)));
+});
+admin.patch('/lines/:id', (req, res) => {
+  const row = lineRow(req.params.id); if (!row) return res.status(404).json({ error: 'No existe' });
+  const name = req.body?.name !== undefined ? String(req.body.name).slice(0, 40) : row.name;
+  const limit = req.body?.daily_limit !== undefined ? Math.min(Math.max(Number(req.body.daily_limit) || 1, 1), MAX_DAILY) : row.daily_limit;
+  store.db.prepare('UPDATE lines SET name=?, daily_limit=? WHERE id=?').run(name, limit, row.id);
+  res.json(linePublic(lineRow(row.id)));
+});
+admin.post('/lines/:id/restart', async (req, res) => {
+  const row = lineRow(req.params.id); if (!row) return res.status(404).json({ error: 'No existe' });
+  lines.start(row.id).catch(e => console.error('[linea]', e.message));
+  res.json({ ok: true });
+});
+admin.delete('/lines/:id', async (req, res) => {
+  const row = lineRow(req.params.id); if (!row) return res.status(404).json({ error: 'No existe' });
+  await lines.remove(row.id);
+  store.db.prepare('DELETE FROM lines WHERE id=?').run(row.id);
+  res.json({ ok: true });
+});
+
+// Recontacto UNO A UNO de un jugador propio por una línea (con tope diario por línea)
+admin.post('/contacts/:id/line-message', async (req, res) => {
+  const c = store.getContact(Number(req.params.id));
+  const row = lineRow(req.body?.line_id);
+  const body = String(req.body?.body || '').trim();
+  if (!c || !row || !body) return res.status(400).json({ error: 'Faltan datos' });
+  if (c.do_not_contact) return res.status(400).json({ error: 'Este contacto pidió no recibir mensajes.' });
+  const today = new Date().toISOString().slice(0, 10);
+  const count = row.sent_date === today ? row.sent_count : 0;
+  const isFirst = !(c.channel === 'linea' && c.line_id === row.id && c.last_client_at);
+  if (isFirst && count >= row.daily_limit) return res.status(429).json({ error: `Llegaste al tope de hoy para "${row.name}" (${row.daily_limit}). Seguí mañana o usá otra línea.` });
+  try {
+    let jid = c.channel === 'linea' && c.line_id === row.id && c.wa_jid ? c.wa_jid : null;
+    if (!jid) {
+      jid = await lines.check(row.id, String(c.phone).replace(/\D/g, ''));
+      if (!jid) return res.status(400).json({ error: 'Ese número no tiene WhatsApp.' });
+    }
+    store.updateContact(c.id, { channel: 'linea', line_id: row.id, wa_jid: jid, bot_enabled: 1, ...(isFirst ? { recontacted_at: new Date().toISOString().slice(0, 19).replace('T', ' ') } : {}) });
+    if (isFirst) {
+      store.db.prepare('UPDATE lines SET sent_count=?, sent_date=? WHERE id=?').run(count + 1, today, row.id);
+      store.logEvent(c.id, 'recontact', { line: row.id });
+    }
+    const m = sendOutbound(c.id, 'agent', body);
+    io.to('admins').emit('line', linePublic(lineRow(row.id)));
+    res.json({ ok: true, message: m });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// Próximo jugador para recontactar: importado, nunca contactado y sin "no contactar"
+admin.get('/recovery/next', (req, res) => {
+  const after = Number(req.query.after) || 0;
+  const q = `SELECT * FROM contacts WHERE do_not_contact=0 AND recontacted_at IS NULL AND source='importado'
+    AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.contact_id=contacts.id) AND id>? ORDER BY id LIMIT 1`;
+  const next = store.db.prepare(q).get(after);
+  const left = store.db.prepare(`SELECT COUNT(*) AS n FROM contacts WHERE do_not_contact=0 AND recontacted_at IS NULL AND source='importado'
+    AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.contact_id=contacts.id)`).get().n;
+  res.json({ contact: next || null, left });
 });
 
 // ---------- Entrenamiento ----------

@@ -79,6 +79,15 @@ CREATE TABLE IF NOT EXISTS examples (
   active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS lines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  phone TEXT,
+  daily_limit INTEGER DEFAULT 30,
+  sent_count INTEGER DEFAULT 0,
+  sent_date TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS prompt_versions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   script TEXT NOT NULL,
@@ -140,7 +149,7 @@ function getContactByPhone(phone) {
   return db.prepare('SELECT * FROM contacts WHERE phone=?').get(phone);
 }
 function updateContact(id, fields) {
-  const allowed = ['name', 'phone', 'province', 'stage', 'tags', 'notes', 'source', 'channel', 'dni', 'titular', 'deposit_amount', 'deposit_at', 'cpa_confirmed_at', 'bot_enabled', 'needs_human',
+  const allowed = ['line_id', 'wa_jid', 'do_not_contact', 'recontacted_at', 'name', 'phone', 'province', 'stage', 'tags', 'notes', 'source', 'channel', 'dni', 'titular', 'deposit_amount', 'deposit_at', 'cpa_confirmed_at', 'bot_enabled', 'needs_human',
     'unread', 'marketing_optin', 'prompt_version', 'followups_sent', 'last_client_at', 'last_outbound_at',
     'last_message_at', 'last_message_preview'];
   const keys = Object.keys(fields).filter(k => allowed.includes(k));
@@ -180,7 +189,8 @@ function addMessage(contactId, sender, body, extra = {}) {
 // ---------- migraciones (bases ya creadas en Railway) ----------
 (function migrate() {
   const cols = db.prepare('PRAGMA table_info(contacts)').all().map(c => c.name);
-  for (const [col, type] of [['dni', 'TEXT'], ['titular', 'TEXT'], ['deposit_amount', 'TEXT'], ['deposit_at', 'TEXT'], ['cpa_confirmed_at', 'TEXT']]) {
+  for (const [col, type] of [['dni', 'TEXT'], ['titular', 'TEXT'], ['deposit_amount', 'TEXT'], ['deposit_at', 'TEXT'], ['cpa_confirmed_at', 'TEXT'],
+    ['line_id', 'INTEGER'], ['wa_jid', 'TEXT'], ['do_not_contact', 'INTEGER DEFAULT 0'], ['recontacted_at', 'TEXT']]) {
     if (!cols.includes(col)) db.exec(`ALTER TABLE contacts ADD COLUMN ${col} ${type}`);
   }
   db.exec("UPDATE contacts SET stage='cargo' WHERE stage='primera_carga'");
@@ -207,6 +217,22 @@ function addMessage(contactId, sender, body, extra = {}) {
       db.prepare('INSERT INTO prompt_versions(script, note) VALUES(?,?)').run(D.script, 'Flujo carga primero: $1.000 → bono $10.000 + DNI');
     }
     put('_flow_v3', true);
+  }
+  // v4: registro asistido paso a paso (se agrega al guion guardado si todavía no lo tiene)
+  if (!db.prepare("SELECT 1 FROM settings WHERE key='_flow_v4'").get()) {
+    const row = db.prepare("SELECT value FROM settings WHERE key='script'").get();
+    if (row) {
+      let sc = JSON.parse(row.value);
+      if (!sc.includes('REGISTRO ASISTIDO')) {
+        const sec = DEFAULT_SETTINGS.script.slice(DEFAULT_SETTINGS.script.indexOf('REGISTRO ASISTIDO'), DEFAULT_SETTINGS.script.indexOf('OBJECIONES FRECUENTES'));
+        sc = sc.includes('OBJECIONES FRECUENTES') ? sc.replace('OBJECIONES FRECUENTES', sec + 'OBJECIONES FRECUENTES') : sc + '\n\n' + sec;
+        db.prepare("UPDATE settings SET value=? WHERE key='script'").run(JSON.stringify(sc));
+        db.prepare('INSERT INTO prompt_versions(script, note) VALUES(?,?)').run(sc, 'Registro asistido paso a paso');
+      }
+    } else if (db.prepare('SELECT 1 FROM prompt_versions LIMIT 1').get()) {
+      db.prepare('INSERT INTO prompt_versions(script, note) VALUES(?,?)').run(DEFAULT_SETTINGS.script, 'Registro asistido paso a paso');
+    }
+    db.prepare("INSERT INTO settings(key,value) VALUES('_flow_v4','true') ON CONFLICT(key) DO NOTHING").run();
   }
 })();
 

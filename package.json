@@ -9,8 +9,10 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.4",
     "web-push": "^3.6.7"
   },

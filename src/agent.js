@@ -9,7 +9,8 @@ const running = new Set();   // contactId en proceso
 
 let io = null;
 let sendOutbound = null;     // (contactId, sender, body) => msg
-function init(deps) { io = deps.io; sendOutbound = deps.sendOutbound; }
+let hooks = {};              // onTyping(contactId, on), onRead(contactId) para líneas de WhatsApp
+function init(deps) { io = deps.io; sendOutbound = deps.sendOutbound; hooks = deps.hooks || {}; }
 
 const STAGE_LABELS = {
   nuevo: 'Nuevo', datos_carga: 'Datos de carga enviados', cargo: 'Cargó', link_enviado: 'Link enviado',
@@ -53,10 +54,12 @@ Cuenta oficial BPLAY para transferencias en la provincia de este cliente: ${acco
 
 === DATOS DEL CONTACTO ===
 Nombre: ${contact.name || '(sin nombre)'}
+Celular: ${contact.phone ? contact.phone.replace(/^\+549/, '') + ' (10 dígitos: código de área + número, sin 0 ni 15)' : '(no lo tenemos)'}
+DNI: ${contact.dni || '(todavía no lo pasó)'}
 Provincia: ${contact.province ? `${contact.province} (${settings.provinces[contact.province]?.label || ''})` : '(desconocida)'}
 Etapa actual: ${contact.stage} (${STAGE_LABELS[contact.stage] || ''})
 Carga reportada: ${contact.deposit_amount ? `sí — $${contact.deposit_amount}, DNI ${contact.dni}, titular ${contact.titular}` : 'todavía no'}
-Canal: ${contact.channel === 'whatsapp' ? 'WhatsApp' : 'chat web'}
+Canal: ${contact.channel === 'whatsapp' || contact.channel === 'linea' ? 'WhatsApp' : 'chat web'}${contact.recontacted_at ? '\nEs un jugador que ya jugó con nosotros y lo recontactamos: tratalo como cliente conocido.' : ''}
 
 Usá actualizar_contacto cada vez que sepas la provincia o la persona avance de etapa. Etapas: ${BOT_STAGES.join(', ')}.`;
 }
@@ -123,6 +126,7 @@ function historyFor(contactId) {
 }
 
 function setTyping(contactId, on) {
+  if (hooks.onTyping) hooks.onTyping(contactId, on);
   if (io) io.to(`c:${contactId}`).emit('typing', on);
   if (io) io.to('admins').emit('typing', { contactId, on });
 }
@@ -282,6 +286,7 @@ function markRead(contactId, typing = true) {
   const r = store.db.prepare("UPDATE messages SET status='read' WHERE contact_id=? AND sender='client' AND status!='read'").run(contactId);
   if (r.changes && io) io.to(`c:${contactId}`).emit('read');
   if (last && r.changes) wa.markReadTyping(last.wa_id, typing);
+  if (r.changes && hooks.onRead) hooks.onRead(contactId);
 }
 
 function schedule(contactId, delay) {

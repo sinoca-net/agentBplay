@@ -3,6 +3,23 @@
 **Circuito principal:** anuncio en Meta → landing (`/`) con el chat integrado → bot + vos desde el panel → link oficial de BPLAY → primera carga.
 WhatsApp es opcional: si algún día conectás un número, entra a la misma bandeja.
 
+## Versión 4: líneas de WhatsApp en el panel
+- **Líneas → Conectar línea:** escaneás el QR con el celular del número (WhatsApp → Dispositivos vinculados), como WhatsApp Web. La sesión queda guardada en el volumen y se reconecta sola.
+- Todo lo que te escriben por esas líneas cae en la **misma bandeja** (filtro "Líneas WhatsApp") y **el bot responde** igual que en el chat web. Lo que escribís desde el celular también se ve en el panel.
+- **Recuperar jugadores, uno a uno:** **Contactos → 📲 Recuperar jugadores** te muestra de a un jugador importado que todavía no contactaste. Revisás el mensaje (con su nombre y tu link `?src=recupero`) y elegís **Enviar** o **Saltar**. También podés escribirle a cualquier contacto desde su ficha ("Escribir por línea").
+- **Cuidado de las líneas:**
+  - tope diario de primeros contactos por línea (máximo 50, por defecto 30);
+  - pausa de 8 a 15 segundos entre envíos;
+  - antes de mandar, verifica que el número tenga WhatsApp;
+  - nada de envíos masivos automáticos.
+- **"BAJA":** si alguien responde BAJA, STOP, "no me escribas", etc., queda marcado como 🚫 No contactar, el bot se apaga y el panel no deja volver a escribirle.
+- Los contactos importados que nunca hablaron no llenan la bandeja: sólo aparecen ahí cuando hay conversación.
+
+## Versión 3.1: registro asistido
+- El bot acompaña el registro de BPLAY **pantalla por pantalla** (datos personales → identidad y domicilio → usuario), con los datos del cliente listos para copiar: nombre, DNI y celular.
+- Explica cada campo difícil: CUIL (dónde encontrarlo), "Persona Expuesta Políticamente", declaración de planes sociales y la validación con selfie.
+- Nunca pide usuario ni contraseña de BPLAY, ni sugiere completar datos falsos.
+
 ## Versión 3: carga primero + DNI para el CPA
 - **El bot persigue dos objetivos:** (1) que la persona transfiera la **carga mínima de $1.000** a la **cuenta oficial de su provincia** y se lleve el **bono de $10.000**; (2) que **se registre** con el link oficial, con el mismo nombre y DNI.
 - Siempre aclara que la transferencia tiene que salir de una **cuenta a nombre de la misma persona** que se registra.
