@@ -590,7 +590,10 @@ io.on('connection', socket => {
     if (cookies.adm !== adminToken()) return socket.disconnect(true);
     socket.join('admins');
     socket.on('agent:send', ({ contactId, body, keepBot }, ack) => {
-      const text = String(body || '').trim();
+      const c0 = store.getContact(contactId);
+      const text = String(body || '').trim()
+        .replace(/\{nombre\}/g, (c0?.name || '').split(' ')[0] || '')
+        .replace(/\{link\}/g, `${process.env.PUBLIC_URL || ''}/?src=recupero`);
       if (!text) return;
       // cuando un humano escribe, el bot se pausa (salvo que se indique lo contrario)
       if (!keepBot) store.updateContact(contactId, { bot_enabled: 0, needs_human: 0 });

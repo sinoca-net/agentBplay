@@ -52,6 +52,9 @@ ${provs}
 ${settings.deposit_instructions}
 Cuenta oficial BPLAY para transferencias en la provincia de este cliente: ${account}
 
+=== FECHA ===
+Hoy es ${new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', day: 'numeric', month: 'long' })}, ${new Date().toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit' })} hs (Argentina). Usalo para saber qué promo del día corresponde.
+
 === DATOS DEL CONTACTO ===
 Nombre: ${contact.name || '(sin nombre)'}
 Celular: ${contact.phone ? contact.phone.replace(/^\+549/, '') + ' (10 dígitos: código de área + número, sin 0 ni 15)' : '(no lo tenemos)'}
@@ -69,7 +72,7 @@ function tools(settings) {
   return [
     {
       name: 'enviar_datos_carga',
-      description: 'Envía al cliente, como mensaje aparte y fácil de copiar, la cuenta oficial de BPLAY de su provincia para transferir la carga mínima de $1.000. Usala apenas sepas la provincia.',
+      description: 'Envía al cliente, como mensaje aparte y fácil de copiar, la cuenta oficial de BPLAY de su provincia para transferir la carga mínima de $2.000. Usala apenas sepas la provincia.',
       input_schema: { type: 'object', properties: { provincia: { type: 'string', enum: keys } }, required: ['provincia'] },
     },
     {
@@ -157,7 +160,7 @@ async function runTool(contact, name, input, settings) {
     advance(contact.id, 'datos_carga');
     store.logEvent(contact.id, 'deposit_info_sent', { province: input.provincia });
     setTyping(contact.id, true); await sleep(900); setTyping(contact.id, false);
-    sendOutbound(contact.id, 'bot', `🏦 Cuenta oficial BPLAY ${p.label}\n${p.deposit_account}\n\nMínimo $1.000 · desde una cuenta a tu nombre`);
+    sendOutbound(contact.id, 'bot', `🏦 Cuenta oficial BPLAY ${p.label}\n${p.deposit_account}\n\nMínimo $2.000 · desde una cuenta a tu nombre`);
     return `Datos de carga de ${p.label} enviados. Recordale que transfiera desde una cuenta a su nombre y que cuando lo haga te pase DNI, titular y monto.`;
   }
   if (name === 'registrar_carga') {
@@ -271,7 +274,7 @@ async function fallbackReply(contact, settings) {
     return;
   }
   if (contact.stage === 'nuevo') {
-    await sendBubbles(contact.id, '¡Genial! Cargando $1.000 te llevás $10.000 de bono 🎁 Transferí desde una cuenta a tu nombre y después pasame tu DNI 👇');
+    await sendBubbles(contact.id, '¡Genial! Cargando $2.000 te llevás $20.000 de bono 🎁 Transferí desde una cuenta a tu nombre y después pasame tu DNI 👇');
     await runTool(contact, 'enviar_datos_carga', { provincia: prov }, settings);
     await runTool(store.getContact(contact.id), 'enviar_link_registro', { provincia: prov }, settings);
     await sendBubbles(contact.id, 'Registrate con el mismo nombre y DNI de la cuenta desde la que transferís 🙌');

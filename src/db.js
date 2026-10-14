@@ -234,6 +234,27 @@ function addMessage(contactId, sender, body, extra = {}) {
     }
     db.prepare("INSERT INTO settings(key,value) VALUES('_flow_v4','true') ON CONFLICT(key) DO NOTHING").run();
   }
+  // v5: bono de bienvenida $20.000 con carga mínima $2.000 (no toca las promos de fidelización)
+  if (!db.prepare("SELECT 1 FROM settings WHERE key='_flow_v5'").get()) {
+    const fix = str => str
+      .replace(/\$1\.000/g, () => '$2.000')
+      .replace(/\$10\.000(?= de bono)/g, () => '$20.000')
+      .replace(/(bienvenida de|bono de|llevás|llevate|te damos|tenés el bono de|recibís tu bono de|recibir el bono de) \$10\.000/g, (_m, w) => `${w} $20.000`);
+    const walk = v => typeof v === 'string' ? fix(v) : Array.isArray(v) ? v.map(walk) : (v && typeof v === 'object') ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)])) : v;
+    let changedScript = null;
+    for (const row of db.prepare('SELECT key, value FROM settings').all().filter(r => !r.key.startsWith('_'))) {
+      const before = row.value, after = JSON.stringify(walk(JSON.parse(before)));
+      if (after !== before) {
+        db.prepare('UPDATE settings SET value=? WHERE key=?').run(after, row.key);
+        if (row.key === 'script') changedScript = JSON.parse(after);
+      }
+    }
+    if (db.prepare('SELECT 1 FROM prompt_versions LIMIT 1').get()) {
+      const sc = changedScript || JSON.parse(db.prepare("SELECT value FROM settings WHERE key='script'").get()?.value || 'null') || DEFAULT_SETTINGS.script;
+      db.prepare('INSERT INTO prompt_versions(script, note) VALUES(?,?)').run(sc, 'Bono bienvenida $20.000 con carga mínima $2.000');
+    }
+    db.prepare("INSERT INTO settings(key,value) VALUES('_flow_v5','true') ON CONFLICT(key) DO NOTHING").run();
+  }
 })();
 
 module.exports = {

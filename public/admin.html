@@ -584,9 +584,21 @@ $('fixSave').onclick = async () => {
   } catch(e){ toast(e.message); }
 };
 const scrollMsgs = () => { const b=$('msgs'); if (b) b.scrollTop = b.scrollHeight; };
-function sendReply(){
-  const t = $('reply').value.trim(); if (!t || !current) return;
+async function sendReply(){
+  let t = $('reply').value.trim(); if (!t || !current) return;
+  const c = contacts.get(current);
+  t = t.replace(/\{nombre\}/g, (c?.name||'').split(' ')[0] || '').replace(/\{link\}/g, location.origin + '/?src=recupero');
   $('reply').value=''; $('reply').style.height='auto';
+  // contacto importado / sin canal activo: si no hay WhatsApp API, se manda por una línea conectada
+  const needsLine = c && c.channel !== 'web' && c.channel !== 'linea' && !status.whatsapp;
+  if (needsLine) {
+    const conn = [...linesCache.values()].filter(l => l.status === 'connected');
+    const line = conn.find(l => l.id === c.line_id) || conn.find(l => l.sent_count < l.daily_limit) || conn[0];
+    if (!line) { toast('Conectá una línea en "Líneas" para escribirle por WhatsApp'); $('reply').value = t; return; }
+    try { await api(`/contacts/${current}/line-message`, { method:'POST', body: JSON.stringify({ line_id: line.id, body: t }) }); toast('Enviado por ' + line.name); }
+    catch(e){ toast(e.message); $('reply').value = t; }
+    return;
+  }
   socket.emit('agent:send', { contactId: current, body: t });
 }
 

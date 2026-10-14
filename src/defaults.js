@@ -4,16 +4,16 @@ const DEFAULT_SETTINGS = {
   agent_name: 'Valentina',
   agent_title: 'agente oficial afiliada de BPLAY',
   agent_status: 'en línea',
-  welcome_message: '¡Hola! 👋 Soy Valentina, agente oficial de BPLAY. Cargando $1.000 te llevás $10.000 de bono 🎁 Te ayudo en 2 minutos.',
+  welcome_message: '¡Hola! 👋 Soy Valentina, agente oficial de BPLAY. Cargando $2.000 te llevás $20.000 de bono 🎁 Te ayudo en 2 minutos.',
   model: 'claude-sonnet-5-5',
   bot_reply_delay_ms: 2500,
 
   provinces: {
-    PBA: { label: 'Provincia de Buenos Aires', link: 'https://pba.bplay.bet.ar/register?memberid=10163&sourceid=118', bonus: '$10.000 de bono cargando $1.000 (mínimo)', deposit_account: '' },
-    CABA: { label: 'CABA', link: 'https://caba.bplay.bet.ar/register?memberid=37&sourceid=48', bonus: '$10.000 de bono cargando $1.000 (mínimo)', deposit_account: '' },
-    CBA: { label: 'Córdoba', link: 'https://cordoba.bplay.bet.ar/register?memberid=21&sourceid=39', bonus: '$10.000 de bono cargando $1.000 (mínimo)', deposit_account: '' },
-    MZA: { label: 'Mendoza', link: 'https://mendoza.bplay.bet.ar/es/register?aff=manutorreani', bonus: '$10.000 de bono cargando $1.000 (mínimo)', deposit_account: '' },
-    SF: { label: 'Santa Fe', link: 'https://santafe.bplay.bet.ar/register?memberid=10154&sourceid=50', bonus: '$10.000 de bono cargando $1.000 (mínimo)', deposit_account: '' },
+    PBA: { label: 'Provincia de Buenos Aires', link: 'https://pba.bplay.bet.ar/register?memberid=10163&sourceid=118', bonus: '$20.000 de bono cargando $2.000 (mínimo)', deposit_account: '' },
+    CABA: { label: 'CABA', link: 'https://caba.bplay.bet.ar/register?memberid=37&sourceid=48', bonus: '$20.000 de bono cargando $2.000 (mínimo)', deposit_account: '' },
+    CBA: { label: 'Córdoba', link: 'https://cordoba.bplay.bet.ar/register?memberid=21&sourceid=39', bonus: '$20.000 de bono cargando $2.000 (mínimo)', deposit_account: '' },
+    MZA: { label: 'Mendoza', link: 'https://mendoza.bplay.bet.ar/es/register?aff=manutorreani', bonus: '$20.000 de bono cargando $2.000 (mínimo)', deposit_account: '' },
+    SF: { label: 'Santa Fe', link: 'https://santafe.bplay.bet.ar/register?memberid=10154&sourceid=50', bonus: '$20.000 de bono cargando $2.000 (mínimo)', deposit_account: '' },
   },
 
   // Lo que el bot aprende de tus chats reales (se completa desde Bot → Entrenar)
@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS = {
 
   // Landing (todo editable desde el panel)
   landing: {
-    headline: 'Cargá $1.000 y llevate $10.000 de bono en BPLAY',
+    headline: 'Cargá $2.000 y llevate $20.000 de bono en BPLAY',
     subheadline: 'Un agente oficial te pasa la cuenta de tu provincia y te ayuda a registrarte. En 3 minutos estás jugando.',
     cta: 'Hablar con un agente',
     trust_points: [
@@ -32,8 +32,8 @@ const DEFAULT_SETTINGS = {
     ],
     steps: [
       'Escribinos por el chat y contanos de qué provincia sos',
-      'Transferí $1.000 a la cuenta oficial de tu provincia desde una cuenta a tu nombre',
-      'Registrate con el link oficial y recibís tu bono de $10.000',
+      'Transferí $2.000 a la cuenta oficial de tu provincia desde una cuenta a tu nombre',
+      'Registrate con el link oficial y recibís tu bono de $20.000',
     ],
     faq: [
       { q: '¿Es legal?', a: 'Sí. BPLAY es una plataforma con licencia oficial en cada provincia donde opera. Nosotros somos agentes afiliados y te acompañamos en el registro.' },
@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS = {
 
   // Guion editable: cómo vende el bot. Las reglas de seguridad van aparte y no se pueden borrar.
   script: `OBJETIVO: que cada persona haga DOS cosas, en este orden:
-1) TRANSFIERA la carga mínima de $1.000 a la cuenta oficial de BPLAY de su provincia → así se lleva el bono de $10.000.
+1) TRANSFIERA la carga mínima de $2.000 a la cuenta oficial de BPLAY de su provincia → así se lleva el bono de $20.000.
 2) SE REGISTRE en BPLAY con el link oficial, con el MISMO nombre y DNI del titular de la cuenta desde la que transfirió.
 Cada mensaje tiene que acercarla a uno de esos dos pasos. No te vayas por las ramas.
 
@@ -61,7 +61,7 @@ ESTILO
 
 FLUJO
 1. Si no sabés la provincia, preguntala primero (cada provincia tiene su cuenta y su link).
-2. Presentá la oferta en una línea: "Cargando $1.000 te llevás $10.000 de bono 🎁". Enseguida mandale los datos para transferir con la herramienta enviar_datos_carga.
+2. Presentá la oferta en una línea: "Cargando $2.000 te llevás $20.000 de bono 🎁". Enseguida mandale los datos para transferir con la herramienta enviar_datos_carga.
 3. Aclará SIEMPRE, en el mismo momento: la transferencia tiene que salir de una cuenta (banco o billetera virtual) A SU NOMBRE, porque el registro va con ese mismo titular.
 4. Cuando diga que ya transfirió: pedile, en un solo mensaje, su DNI, el nombre completo del titular de la cuenta y el monto. Explicá que es para confirmar su alta y acreditarle el bono. Con esos datos usá registrar_carga.
 5. Enseguida mandale el link de registro con enviar_link_registro y acompañalo con el REGISTRO ASISTIDO (abajo). Recordale: mismo nombre y DNI de la cuenta desde la que transfirió.
@@ -94,10 +94,10 @@ Si en algún paso le tira error: preguntale qué dice el mensaje exacto y resolv
 
 OBJECIONES FRECUENTES
 - "¿Es seguro / es legal?": BPLAY es una plataforma con licencia oficial en tu provincia. La cuenta es la oficial de BPLAY para tu provincia y tu plata queda en tu cuenta de jugador; los retiros van a una cuenta a tu nombre.
-- "¿Por qué tengo que transferir antes?": es la forma más rápida de activar el bono: con tu carga de $1.000 y tu DNI te dejamos todo listo para que al registrarte ya tengas los $10.000 de bono.
+- "¿Por qué tengo que transferir antes?": es la forma más rápida de activar el bono: con tu carga de $2.000 y tu DNI te dejamos todo listo para que al registrarte ya tengas los $20.000 de bono.
 - "¿Puedo transferir desde la cuenta de otra persona?": no, tiene que ser una cuenta a tu nombre, porque BPLAY exige que el titular de la carga y del registro sea el mismo. Si no, no se puede acreditar.
 - "No tengo cuenta bancaria": sirve cualquier billetera virtual a tu nombre (Mercado Pago, Ualá, Brubank, etc.).
-- "¿Cuánto tengo que cargar?": el mínimo es $1.000 y con eso ya tenés el bono de $10.000.
+- "¿Cuánto tengo que cargar?": el mínimo es $2.000 y con eso ya tenés el bono de $20.000.
 - "Después lo hago": ofrecé hacerlo ahora, son 2 minutos. No insistas más de una vez.
 - "No me valida el DNI / la selfie": que pruebe con más luz, sin funda, DNI completo; si falla dos veces, derivá a humano.
 
@@ -108,7 +108,7 @@ DERIVAR A HUMANO cuando: está enojado, transfirió y algo no cuadra (monto, tit
 
   // Seguimientos automáticos (sólo dentro del chat y por notificación push si la aceptó)
   followups: [
-    { stage: 'nuevo', after_hours: 1, text: '{nombre}, ¿seguís por ahí? Cargando $1.000 te llevás $10.000 de bono 🎁 ¿De qué provincia sos?' },
+    { stage: 'nuevo', after_hours: 1, text: '{nombre}, ¿seguís por ahí? Cargando $2.000 te llevás $20.000 de bono 🎁 ¿De qué provincia sos?' },
     { stage: 'datos_carga', after_hours: 1, text: '{nombre}, ¿pudiste hacer la transferencia? Acordate que tiene que salir de una cuenta a tu nombre. Cuando la hagas pasame tu DNI y te dejo el bono listo 🙌' },
     { stage: 'cargo', after_hours: 2, text: '{nombre}, ya tenemos tu carga ✅ Te falta registrarte con el mismo nombre y DNI para que se acredite el bono. ¿Lo hacemos ahora?' },
     { stage: 'link_enviado', after_hours: 2, text: '{nombre}, ¿pudiste completar el registro? Si te trabaste en algún paso decime y lo vemos juntos.' },
@@ -116,7 +116,7 @@ DERIVAR A HUMANO cuando: está enojado, transfirió y algo no cuadra (monto, tit
   max_followups: 2,
 
   // Mensaje para recontactar jugadores propios desde una línea (uno a uno). {nombre} y {link} se reemplazan.
-  recovery_template: 'Hola {nombre}! Soy Manu, de BPLAY 👋 Te escribo porque ya jugaste con nosotros: ahora cargando $1.000 te llevás $10.000 de bono 🎁 Si te interesa, entrá acá y te ayudo: {link}\n\nSi no querés recibir más mensajes, respondé BAJA.',
+  recovery_template: 'Hola {nombre}! Soy Manu, de BPLAY 👋 Te escribo porque ya jugaste con nosotros: ahora cargando $2.000 te llevás $20.000 de bono 🎁 Si te interesa, entrá acá y te ayudo: {link}\n\nSi no querés recibir más mensajes, respondé BAJA.',
 };
 
 // Reglas fijas (no editables desde el panel)
